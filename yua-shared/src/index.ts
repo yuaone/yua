@@ -1,0 +1,31 @@
+// 🔹 기존 exports
+ "./types/common";
+export * from "./workspace/workspace-types";
+export * from "./chat/chat-types";
+export * from "./memory/types";
+export * from "./memory/ui-events";
+export * from "./memory/api-types";
+export * from "./api/me-response";
+export * from "./auth/auth-types";
+export * from "./auth/auth-context.interface";
+export * from "./stream/types";
+export * from "./stream/sentence";
+export * from "./stream/stream-reducer";
+export * from "./chat/studio-types";
+// 🔹 Plan SSOT (🔥 반드시 index에서 export)
+export * from "./plan/plan.types";
+export * from "./plan/plan.policy";
+export * from "./plan/plan.errors";
+export * from "./plan/plan.mapper";
+export type { ThinkingProfile, DeepVariant } from "./types/thinkingProfile";
+export * from "./types/execution-thinking";
+export * from "./stream/thinking-fsm";
+export * from "./stream/activity";
+export * from "./types/yuaMax";
+export * from "./stream/stream-stage";
+export * from "./chat/studio-types";
+export * from "./tool/yua-tool.types";
+export * from "./tool/yua-tool-result.types";
+export * from "./tool/yua-execution-plan.types";
+export * from "./tool/tool-artifact.types";
+export * from "./quant/quant-types";

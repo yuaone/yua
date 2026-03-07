@@ -1,0 +1,7 @@
+  /* =========================
+     Navigation (TypedRoute SAFE)
+  ========================= */
+const goToThread = (threadId: string) => {
+  setActiveThread(threadId);
+  router.push(`/chat/${threadId}` as any);
+};

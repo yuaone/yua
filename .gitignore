@@ -1,0 +1,73 @@
+# dependencies
+node_modules/
+
+# env
+.env
+.env.*
+.env*.local
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Native
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.kotlin/
+*.orig.*
+
+# Metro
+.metro-health-check*
+
+# Next.js
+.next/
+out/
+
+# Build
+build/
+*.tsbuildinfo
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# OS
+.DS_Store
+*.pem
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# PM2
+ecosystem.config.*
+
+# Prisma
+yua-backend/prisma/*.db
+
+# Generated
+yua-mobile/ios
+yua-mobile/android
+yua-mobile/expo-env.d.ts
+yua-mobile/app-example
+
+# Screen captures
+screen/
+
+# Secrets
+**/service-account.json
+
+# Logs
+.agent_*.log
+
+# Git backups
+.git-backup/
+yua-mobile/pnpm-lock.yaml

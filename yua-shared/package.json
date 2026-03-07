@@ -1,0 +1,66 @@
+{
+  "name": "yua-shared",
+  "private": true,
+  "type": "commonjs",
+
+"exports": {
+  ".": {
+    "types": "./dist/types/index.d.ts",
+    "import": "./dist/esm/index.js",
+    "require": "./dist/cjs/index.js"
+  },
+   "./types/yuaMax": {
+      "types": "./dist/types/types/yuaMax.d.ts",
+      "import": "./dist/esm/types/yuaMax.js",
+      "require": "./dist/cjs/types/yuaMax.js"
+    },
+  "./types/*": {
+    "types": "./dist/types/*.d.ts",
+    "import": "./dist/esm/types/*.js",
+    "require": "./dist/cjs/types/*.js"
+  },
+  "./types/suggestion": {
+    "types": "./dist/types/types/suggestion.d.ts",
+    "import": "./dist/esm/types/suggestion.js",
+    "require": "./dist/cjs/types/suggestion.js"
+  },
+  "./chat/*": {
+    "types": "./dist/types/chat/*.d.ts",
+    "import": "./dist/esm/chat/*.js",
+    "require": "./dist/cjs/chat/*.js"
+  },
+  "./memory/*": {
+    "types": "./dist/types/memory/*.d.ts",
+    "import": "./dist/esm/memory/*.js",
+    "require": "./dist/cjs/memory/*.js"
+  },
+  "./stream": {
+    "types": "./dist/types/stream/index.d.ts",
+    "import": "./dist/esm/stream/index.js",
+    "require": "./dist/cjs/stream/index.js"
+  },
+  "./stream/*": {
+    "types": "./dist/types/stream/*.d.ts",
+    "import": "./dist/esm/stream/*.js",
+    "require": "./dist/cjs/stream/*.js"
+  },
+  "./types/thinkingProfile": {
+    "types": "./dist/types/types/thinkingProfile.d.ts",
+    "import": "./dist/esm/types/thinkingProfile.js",
+    "require": "./dist/cjs/types/thinkingProfile.js"
+  }
+},
+
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+
+
+  "files": ["dist"],
+
+  "scripts": {
+    "build:esm": "tsc -p tsconfig.build.esm.json",
+    "build:cjs": "tsc -p tsconfig.build.cjs.json && node src/scripts/write-cjs-package.cjs",
+    "build": "pnpm run build:esm && pnpm run build:cjs"
+  }
+}

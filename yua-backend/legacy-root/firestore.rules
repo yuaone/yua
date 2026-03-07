@@ -1,0 +1,79 @@
+// 📂 firestore.rules — PROD SECURITY RULES (2025.11 FINAL)
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─────────────────────────────────────────
+    // 1) MoneyAlly 앱 일반 유저
+    // ─────────────────────────────────────────
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // 사용자가 생성하는 개인 문서들
+    match /user_reports/{docId} {
+      allow read, create: if request.auth != null 
+                          && request.auth.uid in resource.data.access;
+      allow update, delete: if false;   // 앱에서 삭제 금지
+    }
+
+    // ─────────────────────────────────────────
+    // 2) YA-ENGINE 콘솔 운영자 / 개발자 (console_users)
+    // → JWT 토큰 기반 인증 (role 필드 검증)
+    // ─────────────────────────────────────────
+    match /console_users/{id} {
+      allow read: if request.auth.token.role in ["developer", "superadmin"];
+      allow write: if request.auth.token.role == "superadmin";
+    }
+
+    // 콘솔 로그
+    match /console_logs/{docId} {
+      allow read, write: if request.auth.token.role in ["developer", "superadmin"];
+    }
+
+    // 콘솔 Setting 문서
+    match /settings/{docId} {
+      allow read, write: if request.auth.token.role == "superadmin";
+    }
+
+    // ─────────────────────────────────────────
+    // 3) API Keys (YUA-AI Developer/Enterprise)
+    // ─────────────────────────────────────────
+    match /api_keys/{hash} {
+      allow read, write: if request.auth.token.role == "superadmin";
+    }
+
+    // API 사용량
+    match /api_usage/{hash} {
+      allow read, write: if request.auth.token.role in ["developer", "superadmin"];
+    }
+
+    // ─────────────────────────────────────────
+    // 4) Workflow 엔진
+    // ─────────────────────────────────────────
+    match /workflows/{id} {
+      // 소유자만 읽기 가능
+      allow read: if request.auth != null 
+                  && request.auth.token.uid == resource.data.owner;
+
+      // 생성/수정 — 개발자와 superadmin만
+      allow write: if request.auth.token.role in ["developer", "superadmin"];
+    }
+
+    // ─────────────────────────────────────────
+    // 5) Logs (Engine internal logs)
+    // ─────────────────────────────────────────
+    match /logs/{id} {
+      allow read: if request.auth.token.role in ["developer", "superadmin"];
+      allow write: if true;     // 엔진 서버가 write 가능해야 함
+    }
+
+    // ─────────────────────────────────────────
+    // 6) Default: 모든 비허용 요청 차단
+    // ─────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,77 @@
+////////////////////////////////////////////////////
+// MYSQL VM / SNAPSHOT / FIREWALL SCHEMA (FINAL) //
+////////////////////////////////////////////////////
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource mysql {
+  provider = "mysql"
+  url      = env("MYSQL_DATABASE_URL")
+}
+
+////////////////////////////////////////////////////
+// ENUMS
+////////////////////////////////////////////////////
+
+enum VmStatus {
+  RUNNING
+  STOPPED
+  ERROR
+  PROVISIONING
+}
+
+////////////////////////////////////////////////////
+// VM INSTANCE
+////////////////////////////////////////////////////
+
+model VmInstance {
+  id          String   @id @default(cuid()) @mysql.VarChar(64)
+  userId      String   @mysql.VarChar(128)
+  name        String   @mysql.VarChar(128)
+  cpu         Int
+  memory      Int
+  diskSize    Int
+  ipAddress   String?  @mysql.VarChar(64)
+  providerId  String?  @mysql.VarChar(128)
+
+  status      VmStatus @default(PROVISIONING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  snapshots   VmSnapshot[]
+  diskResizes VmDiskResize[]
+}
+
+////////////////////////////////////////////////////
+// SNAPSHOT
+////////////////////////////////////////////////////
+
+model VmSnapshot {
+  id           BigInt   @id @default(autoincrement())
+  instanceId   String   @mysql.VarChar(64)
+  snapshotName String   @mysql.VarChar(255)
+  filePath     String?  @mysql.VarChar(255)
+  sizeMb       Int?
+  status       String   @mysql.VarChar(16)
+  createdAt    DateTime @default(now())
+  note         String?
+
+  instance     VmInstance @relation(fields: [instanceId], references: [id])
+}
+
+////////////////////////////////////////////////////
+// DISK RESIZE REQUEST
+////////////////////////////////////////////////////
+
+model VmDiskResize {
+  id          Int       @id @default(autoincrement())
+  instanceId  String    @mysql.VarChar(64)
+  oldSize     Int
+  newSize     Int
+  status      String    @default("pending") @mysql.VarChar(32)
+  createdAt   DateTime  @default(now())
+
+  instance    VmInstance @relation(fields: [instanceId], references: [id])
+}

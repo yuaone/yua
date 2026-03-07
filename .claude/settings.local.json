@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm build 2>&1 | tail -10)",
+      "Bash(pnpm build 2>&1 | tail -15)",
+      "Bash(pnpm --filter yua-web build 2>&1 | tail -30)",
+      "Bash(npx pm2 delete yua-web 2>/dev/null; npx pm2 start ecosystem.config.js --only yua-web 2>&1 | tail -10)",
+      "Bash(sleep 3 && npx pm2 list 2>&1 | tail -10 && npx pm2 logs yua-web --lines 5 --nostream 2>&1)",
+      "Bash(pnpm --filter yua-web build 2>&1 | tail -50)",
+      "Bash(cd /home/dmsal020813/projects/yua-web && pnpm run build 2>&1 | tail -15)",
+      "Bash(pnpm --filter yua-mobile add zustand@^5)",
+      "Bash(pnpm --filter yua-mobile lint 2>&1 | head -100)"
+    ]
+  }
+}

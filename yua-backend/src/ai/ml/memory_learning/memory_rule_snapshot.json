@@ -1,0 +1,22 @@
+{
+  "auto_commit": {
+    "min_confidence": 0.78,
+    "min_length": 20
+  },
+  "drift": {
+    "low": 0.14,
+    "medium": 0.23,
+    "high": 0.36
+  },
+  "merge": {
+    "similarity_threshold": 0.92
+  },
+  "decay": {
+    "base_rate": 0.01,
+    "usage_bonus": 0.002
+  },
+  "meta": {
+    "sample_count": 291,
+    "active_count": 291
+  }
+}

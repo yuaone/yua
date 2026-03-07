@@ -1,0 +1,41 @@
+FROM ubuntu:22.04
+
+# ---------- 기본 패키지 ----------
+RUN apt-get update && apt-get install -y \
+    sudo \
+    curl \
+    wget \
+    git \
+    nano \
+    vim \
+    python3 \
+    python3-pip \
+    nodejs \
+    npm \
+    build-essential \
+    locales \
+    tzdata \
+    && locale-gen en_US.UTF-8
+
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
+
+# ---------- 사용자 생성 ----------
+RUN useradd -ms /bin/bash yua && \
+    echo "yua ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+USER yua
+WORKDIR /home/yua
+
+# ---------- 편의 기능 ----------
+RUN mkdir -p /home/yua/workspace
+RUN echo "export PATH=$PATH:/home/yua/.local/bin" >> ~/.bashrc
+
+# ---------- vim 설정 ----------
+RUN echo "set mouse=a" >> ~/.vimrc && \
+    echo "syntax on" >> ~/.vimrc && \
+    echo "set number" >> ~/.vimrc && \
+    echo "set background=dark" >> ~/.vimrc
+
+CMD ["/bin/bash"]

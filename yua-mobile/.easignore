@@ -1,0 +1,10 @@
+# Exclude other packages' node_modules (workspace root handles deps)
+yua-web/node_modules
+yua-backend/node_modules
+yua-console/node_modules
+yua-max-service
+
+# Exclude non-essential dirs
+screen
+*.md
+!README.md

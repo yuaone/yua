@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background: Squircle -->
+  <rect width="512" height="512" rx="112" ry="112" fill="url(#bg)"/>
+
+  <!-- Y letterform -->
+  <path d="
+    M 120 100
+    L 188 100
+    L 256 228
+    L 324 100
+    L 392 100
+    L 288 260
+    L 288 404
+    L 224 404
+    L 224 260
+    Z"
+    fill="#FFFFFF"/>
+
+  <!-- AI dot -->
+  <circle cx="256" cy="268" r="18" fill="#60A5FA" opacity="0.8"/>
+  <circle cx="256" cy="268" r="9" fill="#FFFFFF"/>
+</svg>

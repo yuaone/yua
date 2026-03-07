@@ -1,0 +1,10 @@
+{
+  "name": "yua-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.26.2",
+  "scripts": {
+    "dev:web": "pnpm --filter yua-web dev",
+    "build:web": "pnpm --filter yua-web build",
+    "lint:web": "pnpm --filter yua-web lint"
+  }
+}

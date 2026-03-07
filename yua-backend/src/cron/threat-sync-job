@@ -1,0 +1,52 @@
+﻿// 📂 src/cron/threat-sync-job.ts
+// 🔥 YUA-AI — Threat Auto-Sync Cron FINAL (2025.11)
+// --------------------------------------------------------------
+// ✔ 외부 Threat 패턴 자동 동기화
+// ✔ Git URL 미정 → 환경변수 기반
+// ✔ JSON 구조 자동 검증
+// ✔ DB upsert (중복 처리)
+// ✔ Fail-safe 동작
+// --------------------------------------------------------------
+
+import axios from "axios";
+import { pool } from "../db/mysql";
+
+export async function syncThreatPatterns() {
+  try {
+    const url = process.env.THREAT_SYNC_URL;
+
+    if (!url) {
+      console.warn("⚠ THREAT_SYNC_URL not set. Skip syncing.");
+      return;
+    }
+
+    console.log("🔄 Syncing Threat Patterns from:", url);
+
+    // 외부 JSON 데이터 다운로드
+    const { data } = await axios.get(url, { timeout: 5000 });
+
+    if (!data || !Array.isArray(data.patterns)) {
+      console.error("❌ Invalid threat patterns format from remote source");
+      return;
+    }
+
+    // DB 업데이트
+    for (const p of data.patterns) {
+      if (!p.type || !p.pattern) continue;
+
+      await pool.query(
+        `INSERT INTO threat_patterns (type, pattern, severity, lang)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           pattern = VALUES(pattern),
+           severity = VALUES(severity),
+           lang = VALUES(lang)`,
+        [p.type, p.pattern, p.severity || 1, p.lang || "en"]
+      );
+    }
+
+    console.log("✅ Threat Patterns Synced Successfully");
+  } catch (err: any) {
+    console.error("❌ Threat Sync Failed:", err.message || err);
+  }
+}

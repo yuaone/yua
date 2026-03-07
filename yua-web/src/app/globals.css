@@ -1,0 +1,3970 @@
+    @tailwind base;
+    @tailwind components;
+    @tailwind utilities;
+
+  /* =========================
+    YUA Rhythm Tokens (SSOT)
+    - 넓게 느껴지는 핵심: "폭"을 먼저 고정하고, 리듬은 그 위에 얹는다.
+  ========================= */
+  :root{
+    --chat-max-w: 960px;
+    --chat-pad-x: 18px;
+    --flow-tight:  0.34em;
+    --flow: 0.48em;
+    --flow-loose: 1.05em;
+    --ink: #111827;
+    --ink-2: #374151;
+    --line: #e5e7eb;
+    --wash: rgba(249,250,251,0.9);
+    --app-bg: #ffffff;
+    --card-bg: #ffffff;
+    --card-border: #e5e7eb;
+    --confidence-high: #22c55e;
+    --confidence-mid: #eab308;
+    --confidence-low: #ef4444;
+    --panel-bg: #f8fafc;
+    --muted: #64748b;
+
+    /* surfaces (light) */
+    --surface-main: #ffffff;
+    --surface-panel: #ffffff;
+    --surface-sidebar: var(--sb-bg);
+
+    /* text helpers */
+    --text-primary: var(--ink);
+    --text-secondary: var(--ink-2);
+    --text-muted: var(--muted);
+
+    /* =========================
+      Sidebar Tokens (NEW)
+      - ChatGPT 느낌 말고: "제품형 툴" 톤 (Linear/GitHub 계열)
+    ========================= */
+    /* Notion-like paper */
+    --sb-bg: #F5F6F8;
+    --sb-panel: #FFFFFF;
+    --sb-panel-strong: #FFFFFF;
+    --sb-line: #E5E7EB;
+    --sb-ink: #2B2F36;
+    --sb-ink-2: #6B7280;
+    --sb-soft: #E8EAEE;
+    --sb-active-bg: #DCE2FF;
+    --sb-active-ink: #2563EB;
+  }
+  html.dark{
+  --app-bg: #1a1a1a;
+  --surface-main: #1a1a1a;
+  --surface-panel: #202020;
+  --surface-sidebar: #202020;
+
+    --ink: rgba(255,255,255,0.9);
+    --ink-2: rgba(255,255,255,0.65);
+    --muted: rgba(255,255,255,0.55);
+    --line: rgba(255,255,255,0.10);
+    --wash: rgba(0,0,0,0.35);
+
+    --card-bg: #1b1b1b;
+    --confidence-high: #4ade80;
+    --confidence-mid: #facc15;
+    --confidence-low: #f87171;
+    --card-border: rgba(255,255,255,0.10);
+    --panel-bg: var(--surface-panel);
+
+    /* sidebar tokens (dark) */
+    --sb-bg: var(--surface-sidebar);
+    --sb-panel: var(--surface-sidebar);
+    --sb-panel-strong: var(--surface-sidebar);
+    --sb-line: rgba(255,255,255,0.10);
+    --sb-ink: rgba(255,255,255,0.92);
+    --sb-ink-2: rgba(255,255,255,0.72);
+    --sb-soft: rgba(255,255,255,0.06);
+    --sb-active-bg: rgba(255,255,255,0.12);
+    --sb-active-ink: rgba(255,255,255,0.92);
+
+    /* text helpers */
+    --text-primary: rgba(255,255,255,0.9);
+    --text-secondary: rgba(255,255,255,0.65);
+    --text-muted: rgba(255,255,255,0.55);
+  }
+  .chat-markdown del {
+  text-decoration: none;
+}
+
+  @media (max-width: 640px){
+    :root{
+      --chat-pad-x: 14px;
+      --chat-max-w: 100%;
+    }
+  }
+  @media (min-width: 768px) and (max-width: 1023px){
+    :root{
+      --chat-pad-x: 18px;
+      --chat-max-w: 720px;
+    }
+  }
+
+  @layer components {
+    .input {
+      @apply w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none;
+      @apply focus:border-gray-400 focus:ring-0;
+      @apply placeholder:text-gray-400;
+    }
+    /* =========================
+      System Message Floating Card (Studio)
+    ========================= */
+
+    .yua-system-card {
+      background: white;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 28px rgba(0,0,0,0.05);
+      transition: transform 180ms ease, box-shadow 180ms ease;
+      position: relative;
+    }
+
+    .yua-system-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 40px rgba(0,0,0,0.08);
+    }
+
+    .yua-system-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #111827;
+      color: white;
+      transition: background 160ms ease, transform 160ms ease;
+    }
+
+    .yua-system-cta:hover {
+      background: #000;
+    }
+
+    .yua-system-cta .arrow {
+      opacity: 0.8;
+      transition: transform 160ms ease;
+    }
+
+    .yua-system-cta:hover .arrow {
+      transform: translateX(3px);
+    }
+    /* =========================
+      Sidebar building blocks
+    ========================= */
+    .sb-surface{
+      background: var(--sb-bg);
+      color: var(--sb-ink);
+    }
+
+    .sb-card{
+      background: transparent;
+      border: none;
+      border-radius: 0;
+    }
+
+    .sb-card-strong{
+  background: transparent;
+  border: none;
+  border-radius: 0;
+    }
+
+    .sb-chip{
+      background: var(--sb-soft);
+      color: var(--sb-ink-2);
+      @apply rounded-full px-2 py-0.5 text-[11px] font-medium;
+    }
+
+    .sb-btn-ghost{
+      @apply rounded-xl px-2 py-1.5 text-xs font-semibold;
+      color: var(--sb-ink-2);
+    }
+    .sb-btn-ghost:hover{
+      background: var(--sb-soft);
+      color: var(--sb-ink);
+    }
+  }
+
+  @layer utilities {
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    @keyframes yua-slide-up {
+      from {
+        transform: translateY(16px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+    .animate-yua-slide-up {
+      animation: yua-slide-up 200ms ease-out;
+    }
+  }
+
+    /* =========================
+      Global Base
+    ========================= */
+    html,
+    body,
+    #__next {
+      height: 100%;
+    }
+
+    body {
+      font-size: 16px;
+      line-height: 1.6;
+     color: var(--text-secondary);
+      background-color: var(--app-bg);
+    }
+html.dark body { color: var(--text-secondary); }
+
+/* ===== Make ALL non-code text visible in dark ===== */
+html.dark .assistant-bubble,
+html.dark .assistant-content,
+html.dark .chat-markdown,
+html.dark .chat-markdown p,
+html.dark .chat-markdown li,
+html.dark .chat-markdown span,
+html.dark .chat-markdown div {
+  color: var(--text-secondary);
+}
+html.dark .assistant-bubble strong,
+html.dark .chat-markdown strong,
+html.dark .chat-markdown h1,
+html.dark .chat-markdown h2,
+html.dark .chat-markdown h3 {
+  color: var(--text-primary);
+}
+
+/* keep codeblock styling (do NOT force white inside) */
+html.dark .codeblock-code,
+html.dark .codeblock-code * {
+  color: inherit;
+}
+
+/* blockquote dark fix (기존은 라이트 그라데이션이라 다크에서 안 보임) */
+html.dark .chat-markdown blockquote{
+  border-left-color: rgba(255,255,255,0.18);
+  background: linear-gradient(to right, rgba(255,255,255,0.05), transparent);
+}
+
+/* markdown-key 같은 하드코딩 #111827 다크에서 죽음 */
+html.dark .chat-markdown .markdown-key{
+  color: var(--text-primary);
+}
+
+/* sidebar surface = white text (아이콘 포함) */
+html.dark .sb-surface{ background: var(--sb-bg); color: var(--sb-ink); }
+html.dark .sb-surface *{ color: var(--sb-ink); }
+html.dark .sb-btn-ghost{ color: var(--sb-ink-2); }
+html.dark .sb-btn-ghost:hover{ background: var(--sb-soft); color: var(--sb-ink); }
+
+    /* =========================
+      Typography
+    ========================= */
+    h1 {
+      @apply text-[26px] font-semibold tracking-tight leading-[1.25];
+    }
+
+    h2 {
+      @apply text-[22px] font-semibold tracking-tight leading-[1.3];
+      margin-top: 2.6em;
+      margin-bottom: 1.1em;
+    }
+    /* =========================
+      CodeBlock Layout (SSOT)
+    ========================= */
+    .codeblock {
+      position: relative;
+      overflow: visible;
+      margin: 2.2em 0;
+      border-radius: 14px;
+  background: #f7f7f8;
+  border: 1px solid #e5e7eb;
+    border-radius: 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+   
+    }
+    html.dark .codeblock {
+      background: #1b1b1b;
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+
+  .chat-markdown p + .codeblock {
+    margin-top: 1.4em;
+  }
+
+  .codeblock + .chat-markdown p {
+    margin-top: 1.4em;
+  }
+
+  .chat-markdown.is-streaming .md-table {
+    transition: opacity 140ms ease;
+  }
+
+  .chat-markdown.is-streaming .md-tr {
+    transition: background 140ms ease;
+  }
+
+
+    /* =========================
+      CodeBlock Header (ChatGPT-style)
+    ========================= */
+    .codeblock-head {
+      position: sticky;
+      top: 0;
+      z-index: 6;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      min-height: 44px;
+      background: #f7f7f8;
+      border-radius: 16px 16px 0 0;
+    }
+    html.dark .codeblock-head {
+      background: #1b1b1b;
+    }
+
+    /* </> Icon */
+    .codeblock-icon {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      color: #6b7280;
+    }
+    html.dark .codeblock-icon {
+      color: rgba(255,255,255,0.55);
+    }
+
+    /* Language Label */
+    .codeblock-lang {
+      padding: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #6b7280;
+      letter-spacing: -0.01em;
+      background: transparent;
+      text-transform: lowercase;
+      user-select: none;
+    }
+    html.dark .codeblock-lang {
+      color: rgba(255,255,255,0.65);
+    }
+
+    /* Copy Button (icon only) */
+    .codeblock-copy {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      color: #6b7280;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      border-radius: 8px;
+      transition: all 180ms ease;
+    }
+    html.dark .codeblock-copy {
+      color: rgba(255,255,255,0.55);
+    }
+
+  .codeblock-copy.is-copied {
+    color: #10b981;
+    animation: yua-copy-flash 420ms ease;
+  }
+
+  @keyframes yua-copy-flash{
+    0%{ transform: scale(0.95); opacity: 0.7; }
+    100%{ transform: scale(1); opacity: 1; }
+  }
+
+  .codeblock-copy:hover{
+    background: #e5e7eb;
+    color: #111827;
+  }
+  html.dark .codeblock-copy:hover{
+    background: rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.9);
+  }
+
+    /* =========================
+      Code Scroll Area
+    ========================= */
+    .codeblock-pre {
+      margin: 0;
+      padding: 1rem 1rem 1.25rem;
+      overflow-x: auto;
+      max-width: 100%;
+    }
+
+    /* =========================
+      Code Text (가독성 핵심)
+    ========================= */
+  .codeblock-code {
+    font-size: 15.6px;
+    line-height: 1.7;
+    font-weight: 500;
+    letter-spacing: normal;
+    white-space: pre;
+    display: block;
+    min-width: 0;
+   color: #334155;
+   font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  }
+
+/* =========================
+   Prism Tokens – Ultra Muted GPT Style (SSOT Clean)
+   - 채도 ↓
+   - 명암 중심
+   - 중복 제거
+========================= */
+
+/* 기본 코드 컬러 */
+.codeblock-code {
+  color: #334155;            /* slate-700 */
+}
+html.dark .codeblock-code {
+  color: rgba(255,255,255,0.95);
+}
+
+html.dark .codeblock-code .token.plain,
+html.dark .codeblock-code .token.text {
+  color: rgba(255,255,255,0.95);
+}
+
+.codeblock-code,
+.codeblock-code {
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+}
+/* -------------------------
+   Comment / Meta
+------------------------- */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #94a3b8;            /* slate-400 */
+  font-style: normal;
+}
+html.dark .token.comment,
+html.dark .token.prolog,
+html.dark .token.doctype,
+html.dark .token.cdata {
+  color: rgba(255,255,255,0.55);
+}
+
+/* -------------------------
+   Keyword (구조 강조만)
+------------------------- */
+.token.keyword {
+  color: #7c3aed;            /* muted violet */
+  font-weight: 600;
+}
+html.dark .token.keyword {
+  color: #c4b5fd;
+}
+
+/* SQL 전용 살짝 다르게 */
+.language-sql .token.keyword {
+  color: #6b5bd2;            /* softer purple */
+}
+html.dark .language-sql .token.keyword {
+  color: #a5b4fc;
+}
+
+/* -------------------------
+   Function / Method
+------------------------- */
+.token.function {
+  color: #6366f1;            /* soft indigo */
+  font-weight: 500;
+}
+html.dark .token.function {
+  color: #a5b4fc;
+}
+
+/* -------------------------
+   String
+------------------------- */
+.token.string,
+.token.attr-value {
+  color: #047857;            /* deep muted emerald */
+}
+html.dark .token.string,
+html.dark .token.attr-value {
+  color: #34d399;
+}
+
+/* -------------------------
+   Number / Boolean / Constant
+------------------------- */
+.token.number,
+.token.boolean,
+.token.constant,
+.token.symbol {
+  color: #92400e;            /* muted amber-brown */
+}
+html.dark .token.number,
+html.dark .token.boolean,
+html.dark .token.constant,
+html.dark .token.symbol {
+  color: #fbbf24;
+}
+
+/* -------------------------
+   Operator / Punctuation
+------------------------- */
+.token.operator,
+.token.punctuation {
+  color: #64748b;            /* slate-500 */
+}
+html.dark .token.operator,
+html.dark .token.punctuation {
+  color: rgba(255,255,255,0.55);
+}
+
+/* -------------------------
+   Class / Type
+------------------------- */
+.token.class-name,
+.token.builtin {
+  color: #475569;            /* slate-600 */
+  font-weight: 500;
+}
+html.dark .token.class-name,
+html.dark .token.builtin {
+  color: #93c5fd;
+}
+
+/* -------------------------
+   Property / Variable
+------------------------- */
+.token.property,
+.token.variable {
+  color: #1e293b;            /* slate-800 */
+}
+html.dark .token.property,
+html.dark .token.variable {
+  color: rgba(255,255,255,0.85);
+}
+
+/* -------------------------
+   Important / Bold highlight
+------------------------- */
+.token.important {
+  color: #111827;
+  font-weight: 600;
+}
+html.dark .token.important {
+  color: rgba(255,255,255,0.9);
+}
+
+/* -------------------------
+   Deleted / Inserted (diff 대비용)
+------------------------- */
+.token.deleted {
+  color: #b91c1c;
+}
+html.dark .token.deleted {
+  color: #fca5a5;
+}
+
+.token.inserted {
+  color: #166534;
+}
+html.dark .token.inserted {
+  color: #86efac;
+}
+
+    /* =========================
+      Diff Theme
+    ========================= */
+    .codeblock-diff {
+      font-weight: 600;
+    }
+
+  .codeblock-diff .diff-add-sign {
+    color: #16a34a;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+
+  .codeblock-diff .diff-del-sign {
+    color: #dc2626;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+
+  /* diff line wrapper (no background) */
+  .diff-line {
+    display: inline;
+    white-space: pre;
+  }
+
+  /* + sign only */
+  .diff-add-sign {
+    color: #16a34a;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+
+  /* - sign only */
+  .diff-del-sign {
+    color: #dc2626;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+    .diff-hunk {
+      color: #9ca3af;
+    }
+
+    /* =========================
+      Scrollbar
+    ========================= */
+    ::-webkit-scrollbar {
+      width: 14px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background-color: #d1d5db;
+      border-radius: 10px;
+    }
+
+  /* =========================
+    Chat Assistant Typography (SSOT)
+  ========================= */
+  .assistant-bubble {
+    font-size: clamp(16.2px, 0.8vw + 13px, 19.5px);
+    line-height: 1.75;
+    color: var(--ink-2);
+    position: relative;
+  }
+  html.dark .assistant-bubble {
+    color: var(--text-primary);
+  }
+
+  .assistant-content{
+    width: 100%;
+    max-width: none;
+  }
+
+
+
+  .assistant-bubble strong {
+    font-size: 1em;          /* ⬅ 본문과 동일 */
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--ink);
+  }
+
+  /* =========================
+    Structural strong (SSOT)
+    - 소제목/전환 역할의 **...** 를 heading처럼 보이진 않게, "숨은 구조"로만 처리
+  ========================= */
+  .chat-markdown .md-strong-structural{
+    display: inline;
+    margin: 0;
+    font-size: 1em;
+    font-weight: 600;
+  }
+
+  /* =========================
+    Hidden headings (SSOT)
+    - 문서형 제목을 피하되, 읽기 호흡(breath)은 복원
+  ========================= */
+  .chat-markdown .md-heading{
+    margin: 1.85em 0 0.65em;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .chat-markdown .md-heading-1{ font-size: 18.5px; }
+  .chat-markdown .md-heading-2{ font-size: 18px; }
+  .chat-markdown .md-heading-3{ font-size: 17.5px; }
+
+
+  /* container: timeline line + breathing */
+  .chat-markdown {
+    position: relative;
+    padding-left: 0;
+  }
+html.dark .codeblock-code,
+html.dark .codeblock-code * {
+  color: inherit;
+}
+
+  /* 기본 문단: 촘촘하게(대신 key 문단이 살아남) */
+  .chat-markdown .md-p{
+    margin: 0.9em 0;
+  }
+
+  .chat-markdown .md-p + .md-p{
+    margin-top: 0.65em;
+  }
+
+  .semantic-block {
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin: 16px 0;
+  }
+
+  .semantic-insight {
+    background: rgba(99,102,241,0.08);
+  }
+
+  .semantic-emphasis {
+    background: rgba(244,63,94,0.08);
+  }
+
+  .semantic-warning {
+    background: rgba(251,191,36,0.10);
+  }
+
+  .semantic-thinking {
+    background: rgba(14,165,233,0.08);
+  }
+
+  .assistant-bubble .emoji-context{
+    opacity: 0.35;
+    font-size: 0.95em;
+    user-select: none;
+  }
+
+  /* Emoji Context — temperature only */
+  .emoji-context {
+    opacity: 0.32;
+    font-size: 0.95em;
+    line-height: 1;
+    user-select: none;
+    filter: saturate(0.9);
+  }
+
+  /* headings: 문서 느낌 최소화 + 리듬만 남기기 */
+  .chat-markdown h1,
+  .chat-markdown h2,
+  .chat-markdown h3{
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .chat-markdown h3 {
+    font-size: 18px;
+    margin-top: 1.8em;
+    margin-bottom: 0.6em;
+    font-weight: 650;
+  }
+
+.chat-markdown .markdown-key {
+    font-size: 19.5px;
+    line-height: 1.55;
+    font-weight: 600;
+    margin: 1.2em 0 0.6em;
+    color: #111827;
+  }
+  html.dark .chat-markdown .markdown-key {
+    color: var(--text-primary);
+  }
+
+  /* ✅ key 문단: data-md-key=1만 강조 */
+  .chat-markdown .md-p[data-md-key="1"]{
+    margin: 1.1em 0 0.6em;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  html.dark .chat-markdown .md-p[data-md-key="1"]{
+    color: var(--text-primary);
+  }
+
+  /* 문단 간 대비를 글자가 아니라 공기로 */
+  .chat-markdown .md-p {
+    line-height: 1.75;
+  }
+
+  /* =========================
+    Blockquote (GPT-style quot)
+  ========================= */
+  .chat-markdown blockquote {
+    position: relative;
+    margin: 0.55em 0 0.9em;
+    }
+
+  /* =========================
+    Branch → Quote collision fix (SSOT)
+    - 구조 전환(branch) 직후 인용문은
+      "선"을 그리지 않는다 (공기는 branch가 담당)
+  ========================= */
+  .chat-markdown [data-md-branch="1"] + blockquote {
+    border-left: none;
+    padding-left: 0;
+  }
+
+  .chat-markdown blockquote {
+    padding: 0.45em 0 0.45em 12px;
+    border-left: 1.5px solid #d1d5db;
+    color: var(--ink-2);
+    background: linear-gradient(
+      to right,
+      rgba(249,250,251,0.85),
+      transparent
+    );
+  }
+
+  .chat-markdown blockquote::before{
+    content: "“";
+    position: absolute;
+    left: -1px;
+    top: -4px;
+    font-size: 18px; 
+    line-height: 1;
+    color: #9ca3af;
+  }
+
+  .chat-markdown blockquote > .md-p {
+    font-size: 0.85rem;
+    font-size: 0.88em;     /* 🔥 핵심: px 고정 */
+    line-height: 1.45;
+    opacity: 0.92;
+  }
+
+  /* 인용 안의 strong은 과하지 않게 */
+  .chat-markdown blockquote strong {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .md-section{
+    margin-top: 1.6em;
+    margin-bottom: 0.4em;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* 크기 차이는 '느낌만' */
+  .md-section-lg,
+  .md-section-md,
+  .md-section-sm{
+    font-size: 18px;
+    }
+
+  /* section 다음 문단은 붙이지 않기 */
+  .md-section + .md-p{
+    margin-top: 0.4em;
+  }
+
+  /* =========================
+    Speech Block (Chat Rhythm)
+  ========================= */
+  /* =========================
+      Numbered Lead (SSOT)
+      - 1️⃣ / 2️⃣ / 3️⃣ 으로 시작하는 설명형 리드 문단
+  ========================= */
+  .chat-markdown .branch-block[data-md-lead="numbered"] .title{
+    font-size: 1.18em;
+    font-weight: 700;
+  }
+
+  .chat-markdown ul,
+  .chat-markdown ol {
+    margin: 14px 0 16px;
+    padding-left: 1.45rem;   /* 1.25 → 1.45 */
+  }
+
+  .chat-markdown li {
+    margin: 6px 0;
+    line-height: 1.75;
+  }
+
+  .chat-markdown li::marker {
+    color: rgba(100, 116, 139, 0.7);
+    font-weight: 500;
+    font-size: 0.9em;
+  }
+
+  .chat-markdown ul ul,
+  .chat-markdown ol ol {
+    margin-top: 6px;
+  }
+
+  .chat-markdown .md-p + ul,
+  .chat-markdown .md-p + ol {
+    margin-top: 0.7em;
+  }
+
+  .chat-markdown ul + .md-p,
+  .chat-markdown ol + .md-p {
+    margin-top: 0.9em;
+  }
+
+  /* =========================
+    Conversation Rhythm (SSOT)
+  ========================= */
+
+  /* intro: 첫 리드 */
+  .chat-markdown .md-p[data-md-rhythm="intro"] {
+    font-size: 1.06em;
+    line-height: 1.8;
+    margin-top: 0.4em;
+  }
+
+  /* flow: 기본 설명 */
+  .chat-markdown .md-p[data-md-rhythm="flow"] {
+    margin-top: 0.68em;
+  }
+
+  /* turn: 관점 / 구조 전환 */
+  .chat-markdown .md-p[data-md-rhythm="turn"] {
+    margin-top: 2.2em;
+    margin-bottom: 0.8em;
+    font-size: 1.22em;
+    line-height: 1.38;
+    font-weight: 700;
+    letter-spacing: -0.014em;
+  }
+
+  /* wrap: 정리 / 다음 */
+  .chat-markdown .md-p[data-md-rhythm="wrap"] {
+    margin-top: 2em;
+    opacity: 0.95;
+  }
+
+  /* =========================
+    Thinking Panel (SSOT)
+    - DOM stable: Markdown 위에만 얹고, Markdown subtree는 절대 재마운트하지 않는다.
+  ========================= */
+  [data-ssot="thinking-panel"]{
+    position: relative;
+    z-index: 1;
+    user-select: none;
+  }
+
+  [data-ssot="thinking-panel"] .animate-bounce{
+    /* panel 내부 dots는 과장 금지 */
+    opacity: 0.75;
+  }
+  [data-ssot="thinking-complete"]{
+    user-select: none;
+  }
+
+  /* =========================
+    Thinking Inline (GPT-style)
+  ========================= */
+  .yua-thinking-inline {
+    position: relative;
+    overflow: visible;
+    user-select: none;
+  display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: 75%;
+  }
+
+
+  .yua-thinking-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 1px;
+    min-width: 0; /* truncate 안정 */
+    flex: 1;
+  }
+
+  .yua-thinking-line {
+    position: relative;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.25;
+    font-size: 1.02em;
+    color: #6b7280;
+    transform: translateY(0);
+    opacity: 1;
+    animation: yua-think-line-in 220ms ease-out both;
+    transition: opacity 180ms ease, transform 180ms ease;
+  }
+/* thinking title dark fix */
+
+.dark .yua-title-swap {
+  color: var(--text-primary);
+}
+
+  .yua-thinking-line.is-older {
+    opacity: 0.62;
+  }
+
+  .yua-thinking-line.is-latest {
+    color: #374151;
+    opacity: 1;
+  }
+  html.dark .yua-thinking-line {
+    color: var(--text-secondary);
+  }
+  html.dark .yua-thinking-line.is-latest {
+    color: var(--text-primary);
+  }
+
+  .yua-thinking-text {
+    display: inline;
+  }
+
+  @keyframes yua-think-line-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+
+  [data-ssot="stream-overlay-anchor"]{
+    margin-bottom: 12px;
+  }
+
+  /* ✨ Light sweep for entry row */
+  [data-yua-panel="thinking"] [data-ssot="stream-overlay-anchor"]::after{
+    content: "";
+    position: absolute;
+    left: -120%;
+    top: 0;
+    width: 120%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255,255,255,0.35),
+      transparent
+    );
+    animation: yua-light-sweep 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+  html.dark [data-yua-panel="thinking"] [data-ssot="stream-overlay-anchor"]::after{
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255,255,255,0.08),
+      transparent
+    );
+  }
+  @keyframes yua-light-sweep {
+    0% { left: -120%; }
+    100% { left: 120%; }
+  }
+
+
+/* =========================
+   Thinking Timeline — Minimal Inline (SSOT v2)
+========================= */
+
+.yua-timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-left: 0;
+}
+
+.yua-node {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+
+  opacity: 0;
+  transform: translateY(4px);
+  animation: yua-node-in 240ms ease forwards;
+  animation-delay: calc(var(--index) * 40ms);
+}
+
+@keyframes yua-node-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Voice recording waveform dot animation */
+@keyframes voice-dot-wave {
+  0%, 100% { opacity: 0.4; transform: scaleY(1); }
+  50%      { opacity: 1; transform: scaleY(var(--wave-scale, 2)); }
+}
+
+/* ==================================================
+   Quant Analysis Block
+================================================== */
+.yua-quant-block {
+  margin: 8px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-panel);
+  overflow: hidden;
+}
+.yua-quant-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 8px 0;
+}
+@media (max-width: 480px) {
+  .yua-quant-grid { grid-template-columns: 1fr; }
+}
+.yua-quant-card {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--wash);
+}
+.yua-quant-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.yua-quant-card-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+@media (max-width: 480px) {
+  .yua-quant-card-value { font-size: 16px; }
+}
+.yua-quant-card-signal {
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.yua-quant-disclaimer {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  line-height: 1.4;
+}
+.yua-quant-skeleton {
+  animation: yua-skeleton-pulse 1.2s ease-in-out infinite;
+}
+@keyframes yua-skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+/* index */
+.yua-node .yua-index {
+  font-size: 13px;
+  font-weight: 600;
+  color: #9ca3af;
+  width: 22px;
+  text-align: right;
+  flex-shrink: 0;
+}
+html.dark .yua-node .yua-index {
+  color: var(--text-muted);
+}
+
+/* content */
+.yua-content {
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #374151;
+}
+html.dark .yua-content {
+  color: var(--text-secondary);
+}
+
+.yua-title {
+  font-weight: 600;
+  color: #111827;
+  letter-spacing: -0.01em;
+}
+html.dark .yua-title {
+  color: var(--text-primary);
+}
+
+.yua-body {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #6b7280;
+}
+html.dark .yua-body {
+  color: var(--text-secondary);
+}
+
+/* active 강조는 색이 아니라 weight로 */
+.yua-node.is-active .yua-title {
+  font-weight: 700;
+}
+
+  /* SSOT: answer visibility is controlled by React state, NOT CSS */
+  .assistant-content[data-answer-visible="1"]{
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+  .assistant-content[data-answer-visible="0"]{
+    opacity: 0.25;
+    filter: saturate(0.9);
+  }
+
+  [data-ssot="input-thinking-hint"]{
+    font-size: 13px;
+    color: #374151;
+    opacity: 0.88;
+  }
+  html.dark [data-ssot="input-thinking-hint"]{
+    color: var(--text-secondary);
+  }
+
+  [data-ssot="input-thinking-hint"] button{
+    color: #9ca3af;
+    transition: color 160ms ease;
+  }
+  html.dark [data-ssot="input-thinking-hint"] button{
+    color: var(--text-muted);
+  }
+
+  [data-ssot="input-thinking-hint"] button:hover{
+    color: #374151;
+  }
+  html.dark [data-ssot="input-thinking-hint"] button:hover{
+    color: var(--text-primary);
+  }
+
+  /* input shell */
+  [data-ssot="input-shell"]{
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* thinking row */
+  [data-ssot="input-thinking-row"]{
+    flex-shrink: 0;
+  }
+
+  /* Chat input textarea scroll */
+  textarea {
+    scrollbar-width: auto;          /* Firefox */
+    scrollbar-color: #d1d5db transparent;
+  }
+
+  textarea::-webkit-scrollbar {
+  width: 12px;
+  }
+
+  textarea::-webkit-scrollbar-thumb {
+    background-color: #d1d5db; /* gray-300 */
+    border-radius: 999px;
+  }
+
+  textarea::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  textarea {
+    scrollbar-gutter: stable;
+  }
+  /* slow caret blink (focus only) */
+  .chat-input-caret {
+    caret-color: #111827;
+  }
+  html.dark .chat-input-caret {
+    caret-color: rgba(255,255,255,0.9);
+  }
+  .chat-input-caret:focus {
+    animation: yua-caret-blink 1.2s step-end infinite;
+  }
+  @keyframes yua-caret-blink {
+    0%, 100% { caret-color: currentColor; }
+    50% { caret-color: transparent; }
+  }
+  /* caret for inputs and textareas */
+  input.chat-input-caret,
+  textarea.chat-input-caret {
+    caret-color: currentColor;
+  }
+  /* =========================
+    Thinking Drawer (ChatGPT-ish)
+  ========================= */
+.yua-thinking-chip{
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+  color: #374151;
+}
+.yua-thinking-chip:hover{
+  background: #f3f4f6;
+}
+html.dark .yua-thinking-chip{
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+}
+html.dark .yua-thinking-chip:hover{
+  background: rgba(255,255,255,0.10);
+}
+
+  .yua-thinking-skeleton{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 6px;
+  }
+  .yua-thinking-skel-line{
+    height: 12px;
+    border-radius: 8px;
+    background: linear-gradient(90deg,#f3f4f6,#e5e7eb,#f3f4f6);
+    background-size: 200% 100%;
+    animation: yua-skel 1.3s linear infinite;
+  }
+  .yua-thinking-skel-line.short{ width: 70%; }
+  @keyframes yua-skel{
+    from{ background-position: 200% 0; }
+    to{ background-position: -200% 0; }
+  }
+
+ /* =========================
+    Thinking Timeline — GPT Compact
+ ========================= */
+
+ .yua-thinking-timeline{
+   position: relative;
+   padding-left: 22px;
+   display: flex;
+   flex-direction: column;
+   gap: 18px;
+ }
+
+.yua-thinking-timeline::before{
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: #e5e7eb;
+}
+html.dark .yua-thinking-timeline::before{
+  background: rgba(255,255,255,0.12);
+}
+
+ .yua-thinking-node{
+   position: relative;
+   display: flex;
+   align-items: flex-start;
+   gap: 12px;
+ }
+
+.yua-thinking-dot{
+  position: absolute;
+  left: -13px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #6b7280;
+}
+html.dark .yua-thinking-dot{
+  background: rgba(255,255,255,0.55);
+}
+
+.yua-thinking-content{
+  flex: 1;
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: #374151;
+}
+html.dark .yua-thinking-content{
+  color: rgba(255,255,255,0.75);
+}
+
+.yua-thinking-title{
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+}
+html.dark .yua-thinking-title{
+  color: var(--text-primary);
+}
+
+.yua-thinking-body{
+  font-size: 14px;
+  line-height: 1.6;
+  color: #6b7280;
+}
+html.dark .yua-thinking-body{
+  color: var(--text-secondary);
+}
+
+ .yua-thinking-node.is-active .yua-thinking-title{
+   font-weight: 700;
+ }
+.yua-thinking-node.is-active .yua-thinking-dot{
+  background: #111827;
+  transform: scale(1.1);
+}
+html.dark .yua-thinking-node.is-active .yua-thinking-dot{
+  background: rgba(255,255,255,0.9);
+}
+.yua-thinking-content{
+  font-size: 13px;
+  line-height: 1.6;
+  color: #374151;
+}
+html.dark .yua-thinking-content{
+  color: var(--text-secondary);
+}
+.yua-thinking-title{
+  font-weight: 600;
+  font-size: 13px;
+  color: #111827;
+  margin-bottom: 2px;
+}
+html.dark .yua-thinking-title{
+  color: var(--text-primary);
+}
+.yua-thinking-body{
+  white-space: pre-wrap;
+  color: #4b5563;
+}
+html.dark .yua-thinking-body{
+  color: var(--text-secondary);
+}
+.yua-thinking-snippet{
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+html.dark .yua-thinking-snippet{
+  color: var(--text-muted);
+}
+
+  /* =========================
+    Branch Block (SSOT)
+    - p/heading 어디서 오든 동일한 브랜치 타이틀 톤 유지
+  ========================= */
+  .chat-markdown .branch-block .headingRow{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .chat-markdown .branch-block .badge{
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+  html.dark .chat-markdown .branch-block .badge{
+    color: var(--text-secondary);
+  }
+
+
+  .branch-block .title{
+    font-size: 1em;
+  }
+  html.dark .branch-block .title{
+    color: var(--text-primary);
+  }
+
+
+  /* =========================
+    Thinking Drawer Layout Fix (SSOT)
+  ========================= */
+
+  /* 기본 */
+  .assistant-content {
+    transition: none;
+  }
+
+  /* 모바일은 겹침 허용 (overlay) */
+  @media (max-width: 1024px) {
+
+    /* ===== Assistant ===== */
+    .assistant-bubble {
+      font-size: clamp(18.5px, 1.4vw + 14px, 21.5px);
+      line-height: 1.9;
+    }
+
+    .chat-markdown .md-p {
+      font-size: clamp(18px, 1.3vw + 13px, 20.5px);
+    }
+    .assistant-content{
+      max-width: 100% !important;
+    }
+
+    .assistant-bubble{
+      padding-left: 2px;
+      padding-right: 2px;
+    }
+
+
+    .chat-markdown li {
+      font-size: clamp(16.8px, 1vw + 13px, 18.5px);
+    }
+
+    /* headings 약간 확대 */
+    .chat-markdown .md-heading-1,
+    .chat-markdown .md-heading-2,
+    .chat-markdown .md-heading-3 {
+      font-size: clamp(18px, 1.2vw + 14px, 21px);
+    }
+
+    /* ===== User Bubble ===== */
+    .user-bubble {
+      font-size: clamp(17px, 1.1vw + 13px, 19.5px);
+      line-height: 1.8;
+    }
+/* Drawer 열려도 레이아웃 밀지 않음 */
+html[data-thinking-docked="1"] .assistant-content {
+  margin-right: 0 !important;
+}
+  }
+  /* diff line: keep spacing only */
+  .codeblock-diff .diff-line {
+    padding-left: 2px;
+  }
+  .chat-markdown ul {
+    list-style-type: disc;
+  }
+  .chat-markdown ol {
+    list-style-type: decimal;
+  }
+  /* =========================
+    Markdown Table (SSOT) — HARD TARGET (md-table*)
+    - "css 안먹힘" 방지용: 클래스 기반으로 확실히 먹인다
+  ========================= */
+  .chat-markdown .md-table-wrap{
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 24px 0;
+  }
+
+  .chat-markdown .md-table{
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 15.5px;
+    background: #fff;
+    border: 1px solid #eef0f3;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .chat-markdown .md-th,
+  .chat-markdown .md-td{
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f2f4;
+    text-align: center;
+  }
+
+  .chat-markdown .md-th{
+    background: #fafafa;
+    font-weight: 650;
+    color: #111827;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .chat-markdown .md-tr{
+    transition: background 160ms ease;
+  }
+  .chat-markdown .md-tr:hover{
+    background: transparent;
+  }
+  /* ✅ 눌림(pressed): tr 변형은 브라우저마다 불안정 → td에만 살짝 */
+  .chat-markdown .md-tr:active{
+    background: rgba(0,0,0,0.03);
+  }
+  .chat-markdown .md-tr:active .md-td{
+    transform: translateY(0.5px);
+  }
+
+  .chat-markdown .md-tr:last-child .md-td{
+    border-bottom: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .chat-markdown .md-tr{ transition: none; }
+    .chat-markdown .md-tr:active .md-td{ transform: none; }
+  }
+
+  /* Dark mode table */
+  html.dark .chat-markdown .md-table{
+    background: #1e1e1e;
+    border-color: rgba(255,255,255,0.10);
+  }
+  html.dark .chat-markdown .md-th{
+    background: #2a2a2a;
+    color: #f0f0f0;
+    border-bottom-color: rgba(255,255,255,0.12);
+  }
+  html.dark .chat-markdown .md-td{
+    color: #e0e0e0;
+    border-bottom-color: rgba(255,255,255,0.07);
+  }
+  html.dark .chat-markdown .md-tr:hover{
+    background: rgba(255,255,255,0.03);
+  }
+  html.dark .chat-markdown .md-tr:active{
+    background: rgba(255,255,255,0.06);
+  }
+
+  /* =========================
+   Markdown Inline Code
+========================= */
+
+.chat-markdown code:not(pre code) {
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+
+  font-size: 0.88em;
+  padding: 2px 6px;
+  border-radius: 6px;
+
+  background: #f3f4f6;
+  color: #111827;
+}
+
+/* dark */
+html.dark .chat-markdown code:not(pre code) {
+  background: #2a2a2a;
+  color: rgba(255,255,255,0.92);
+}
+
+  /* =========================
+    Prism Yellow Tokens
+    ========================= */
+
+  .codeblock-code .token.number,
+  .codeblock-code .token.constant,
+  .codeblock-code .token.boolean,
+  .codeblock-code .token.symbol,
+  .codeblock-code .token.function,
+  .codeblock-code .token.class-name {
+    color: #b58900;
+  }
+
+  /* =========================
+    Pull-to-Refresh Restore (Mobile Chrome)
+    - 내부 스크롤 유지
+    - 상단 당기기 새로고침 허용
+  ========================= */
+
+  html,
+  body {
+    overscroll-behavior-y: auto;   /* 🔥 체인 복구 */
+    overscroll-behavior-x: none;
+  }
+
+  /* 모바일에서만 */
+  @media (max-width: 1024px) {
+
+    /* 최상단 스크롤 체인 복구 */
+    html,
+    body {
+      overscroll-behavior-y: auto;
+    }
+
+    /* 채팅 스크롤 컨테이너는 체인 허용 */
+    .chat-scroll,
+    .sidebar-scroll {
+      overscroll-behavior-y: auto;   /* 🔥 contain 제거 */
+    }
+
+  }
+.sidebar {
+  background: var(--surface-sidebar);
+  color: var(--text-primary);
+  min-width: 0; overflow-x: hidden; }
+.sidebar * {
+  color: var(--text-primary);
+}
+  /* =========================
+    Mobile App Mode (ONLY MOBILE)
+  ========================= */
+
+  @media (max-width: 1024px) {
+
+    .mobile-app-root {
+      position: fixed;
+      inset: 0;
+      height: 100dvh;
+      width: 100%;
+      overflow: hidden;
+      background: var(--app-bg);
+    }
+
+  }
+
+  @media (max-width: 1024px) {
+    body {
+      background: var(--app-bg);
+    }
+  }
+  @media (max-width: 640px) {
+    .assistant-bubble {
+      letter-spacing: -0.005em;
+    }
+  }
+
+  /* =========================================
+    IMAGE ANALYZING SHIMMER (SSOT SAFE)
+  ========================================= */
+
+  .yua-image-analyzing {
+    position: relative;
+    display: inline-block;
+    color: #6366f1; /* indigo-500 */
+    overflow: hidden;
+  }
+
+  /* shimmer overlay */
+  .yua-image-analyzing::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 150%;
+    height: 100%;
+
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.6),
+      transparent
+    );
+
+    animation: yua-shimmer 1.4s infinite;
+  }
+
+  @keyframes yua-shimmer {
+    0% {
+      left: -150%;
+    }
+    100% {
+      left: 150%;
+    }
+  }
+
+  /* =========================
+    Message Actions (SSOT)
+  ========================= */
+
+  .yua-action-btn {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 17px;
+    transition: all 160ms ease;
+    color: #9ca3af;
+    background: transparent;
+  }
+
+  .yua-action-btn:hover {
+    background: #f3f4f6;
+    color: #111827;
+    transform: translateY(-1px);
+  }
+
+  .yua-action-btn:active{
+    transform: translateY(0) scale(0.96);
+    background: #e5e7eb;
+  }
+
+  .yua-action-btn.is-active {
+    color: #10b981;
+    background: rgba(16,185,129,0.08);
+  }
+
+  html.dark .yua-action-btn {
+    color: rgba(255,255,255,0.4);
+  }
+  html.dark .yua-action-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.85);
+  }
+  html.dark .yua-action-btn:active {
+    background: rgba(255,255,255,0.12);
+  }
+  html.dark .yua-action-btn.is-active {
+    color: #10b981;
+    background: rgba(16,185,129,0.12);
+  }
+
+
+  .chat-markdown .branch-block[data-md-lead="section"] .title{
+    font-size: 1.12em;
+    font-weight: 650;
+  }
+
+  .chat-markdown .branch-block[data-md-lead="minor"] .title{
+    font-size: 19px !important;
+    line-height: 1.45;
+    font-weight: 650;
+  }
+
+  /* =========================
+    Branch line spacing fix (SSOT)
+    - margin으로 공간 먹지 말고: line은 absolute, 간격은 padding으로 컨트롤
+  ========================= */
+  .chat-markdown .branch-block[data-md-lead="major"]{
+    position: relative;
+    margin-top: 1.15em;         /* 🔻 위쪽 과한 공기 줄임 */
+    padding-top: 0.55em;        /* ✅ 라인↔타이틀 간격 */
+    padding-bottom: 0.01px;     /* collapse 차단 유지 */
+  }
+  /* ✅ Branch divider line restore (SSOT) */
+  .chat-markdown .branch-block[data-md-lead="major"]::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: var(--line);
+    opacity: 0.9;
+  }
+
+   html.dark .chat-markdown .branch-block[data-md-lead="major"]::before{
+  background: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.12);
+ }
+
+  .branch-block[data-md-lead="major"] .headingRow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+
+  .major-emoji {
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* =========================
+    Branch Block – Margin Fix (SSOT)
+  ========================= */
+  .chat-markdown .branch-block {
+    margin-top: 1.4em;
+  margin-bottom: 0;
+  padding-bottom: 0.01px; /* 🔥 collapse 차단 */
+  }
+
+
+  .branch-block .emoji {
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .chat-markdown .branch-block .headingRow {
+    display: flex;
+    align-items: center;   /* 🔥 기준 통일 */
+    gap: 8px;
+  }
+  html.dark .chat-markdown .branch-block .headingRow{
+    color: var(--text-primary);
+  }
+  .md-heading-3 {
+    font-size: 19px;   /* +1px */
+    font-weight: 600;
+    margin-top: 18px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+  }
+
+  .md-heading-3 .badge {
+    font-weight: 700;
+    opacity: 0.9;
+  }
+
+
+  .chat-markdown .branch-block[data-md-lead="major"] .headingRow{
+    font-size: 28px;
+    line-height: 1.28;
+    font-weight: 750;
+    letter-spacing: -0.015em;
+  }
+
+  .chat-markdown .branch-block[data-md-lead="section"] .headingRow{
+    font-size: 20px;
+    line-height: 1.38;
+    font-weight: 650;
+  }
+
+  .chat-markdown .branch-block[data-md-lead="minor"] .headingRow{
+    font-size: 19px;        /* 1px 다운 */
+    line-height: 1.42;
+    font-weight: 630;       /* 650 → 630 살짝만 */
+  }
+  /* =========================
+      Branch Inherit Lock (SSOT)
+      - headingRow가 유일한 font-size 기준
+  ========================= */
+  .branch-block .badge,
+  .branch-block .emoji{
+    font-size: inherit !important;
+    line-height: inherit;
+  }
+  html.dark .branch-block .emoji{
+    color: var(--text-secondary);
+  }
+
+  .yua-dots {
+    display: inline-flex;
+    gap: 4px;
+    margin-left: 6px;
+  }
+
+  .yua-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: #9ca3af;
+    animation: yua-dot-blink 1.4s infinite ease-in-out;
+  }
+
+  .yua-dot:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .yua-dot:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes yua-dot-blink {
+    0%, 80%, 100% { opacity: 0.2; }
+    40% { opacity: 1; }
+  }
+
+ 
+@keyframes yua-type {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+.mermaid-block {
+  margin: 2.2em 0;
+  border: 1px solid #eef0f3;
+  background: #fafafa;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.mermaid-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.mermaid-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: lowercase;
+}
+
+.mermaid-actions button {
+  margin-left: 8px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+}
+
+.mermaid-actions button:hover {
+  background: #f3f4f6;
+}
+
+.mermaid-svg-wrapper {
+  overflow: auto;
+  padding: 18px;
+}
+
+.mermaid-block.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: white;
+  border-radius: 0;
+  }
+  /* ===== Shine Sweep Animation ===== */
+
+.yua-shine {
+  position: relative;
+}
+
+.yua-shine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,0.6),
+    transparent
+  );
+  transform: skewX(-20deg);
+}
+html.dark .yua-shine::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,0.08),
+    transparent
+  );
+}
+
+.yua-shine::after {
+  animation: yua-shine-move 3s infinite linear;
+}
+
+@keyframes yua-shine-move {
+  from {
+    left: -120%;
+  }
+  to {
+    left: 130%;
+  }
+}
+.animate-yua-inline-activity {
+  animation: yuaInlineActivity 300ms cubic-bezier(.22,.61,.36,1);
+}
+
+@keyframes yuaInlineActivity {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes yua-group-fade {
+  from {
+   opacity: 0;
+   transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-yua-bullet {
+  animation: yua-group-fade 0.50s cubic-bezier(.22,.61,.36,1) forwards;
+  opacity: 0;
+}
+/* =============================
+   Mermaid Block Container
+============================= */
+
+.mermaid-block {
+  margin: 24px 0;
+  border-radius: 16px;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.02)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.mermaid-block:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* =============================
+   Toolbar
+============================= */
+
+.mermaid-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+  letter-spacing: 0.4px;
+}
+
+.mermaid-label {
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.mermaid-actions button {
+  margin-left: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mermaid-actions button:hover {
+  background: rgba(0, 170, 255, 0.25);
+  transform: scale(1.05);
+}
+
+/* =============================
+   SVG Wrapper
+============================= */
+
+.mermaid-svg-wrapper {
+  overflow: auto;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(0, 150, 255, 0.05), transparent 60%),
+    radial-gradient(circle at 80% 80%, rgba(0, 255, 200, 0.05), transparent 60%);
+}
+
+.mermaid-inner svg {
+  max-width: 100%;
+  height: auto;
+  transition: transform 0.2s ease;
+}
+
+/* =============================
+   Dark Mode Glow Upgrade
+============================= */
+
+html.dark .mermaid-block {
+  border: 1px solid rgba(0, 200, 255, 0.2);
+  box-shadow:
+    0 0 30px rgba(0, 200, 255, 0.2),
+    inset 0 0 0 1px rgba(0, 200, 255, 0.08);
+}
+
+/* =============================
+   Fullscreen Mode
+============================= */
+
+.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #0a0a0a;
+  padding: 40px;
+  border-radius: 0;
+}
+.mermaid-minimap {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.4);
+}
+
+@keyframes flowAnimation {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+.mermaid-svg-wrapper {
+  min-height: 0;
+}
+.mermaid-error-panel {
+ max-height: 180px;
+ overflow: auto;
+}
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.toolbar button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.06);
+  cursor: pointer;
+}
+
+.code-preview {
+  margin-top: 12px;
+  font-size: 12px;
+  background: rgba(0,0,0,0.4);
+  padding: 10px;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+/* =========================================
+   Activity Title Shine (IMAGE ONLY)
+========================================= */
+
+.yua-activity-shine {
+  position: relative;
+  display: inline-block;
+  color: #4f46e5; /* indigo */
+  overflow: hidden;
+}
+
+.yua-activity-shine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 80%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,0.45),
+    transparent
+  );
+  transform: skewX(-18deg);
+  animation: yua-activity-sweep 4.8s cubic-bezier(.4,0,.2,1) infinite;
+}
+
+@keyframes yua-activity-sweep {
+  0%   { left: -150%; }
+  100% { left: 150%; }
+}
+/* ===================================
+   Activity Label Pulse
+=================================== */
+
+[data-ssot="thinking-summary-bar"] button {
+  transition: color 180ms ease;
+}
+/* =========================
+   Activity Summary Label
+========================= */
+
+[data-ssot="thinking-summary-bar"]{
+  color: var(--text-secondary);
+}
+
+html.dark [data-ssot="thinking-summary-bar"]{
+  color: var(--text-secondary);
+}
+
+/* =========================
+   Branch Divider — ChatGPT Style
+   - 텍스트 건드리지 않음
+   - 위에 얇은 풀폭 선만
+========================= */
+
+.chat-markdown .branch-block{
+  position: relative;
+  margin-top: 2.2em;     /* ChatGPT 느낌 여백 */
+  padding-top: 1.2em;    /* 선 아래 공간 */
+}
+
+
+html.dark .chat-markdown .branch-block::before{
+  background: linear-gradient(
+    to right,
+    rgba(255,255,255,0.06),
+    rgba(255,255,255,0.14),
+    rgba(255,255,255,0.06)
+  );
+}
+
+.chat-markdown .branch-block::before{
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  /* 🔥 핵심 */
+  background: linear-gradient(
+    to right,
+    rgba(0,0,0,0.06),
+    rgba(0,0,0,0.12),
+    rgba(0,0,0,0.06)
+  );
+
+  opacity: 1;
+}
+.chat-markdown .branch-block[data-md-lead="major"]{
+  position: relative;
+  margin-top: 2.4em;
+  padding-top: 1.2em;
+}
+
+.chat-markdown .branch-block[data-md-lead="major"]::before{
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+@keyframes yuaTitleSwap {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-yua-title-swap {
+  animation: yuaTitleSwap 380ms ease;
+}
+@keyframes yuaInlineStream {
+  0% {
+   opacity: 0;
+   transform: translateX(-14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-yua-inline-stream {
+  animation: yuaInlineStream 420ms cubic-bezier(.22,.61,.36,1);
+}
+.assistant-content {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+/* =========================
+   Chat Scroll X overflow guard (SSOT)
+   - body가 아니라 내부 스크롤 컨테이너가 가로 스크롤을 만드는 케이스 차단
+========================= */
+.chat-scroll {
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  max-width: 100%;
+scrollbar-gutter: auto;
+}
+
+/* chat 내부에서 "튀는 width" 예방 */
+.chat-scroll * {
+  min-width: 0;
+}
+
+/* 이미지/테이블/프리블록이 부모를 뚫는 케이스 방어 */
+.chat-scroll img,
+.chat-scroll video,
+.chat-scroll canvas {
+  max-width: 100%;
+  height: auto;
+}
+/* ===== Thinking Timeline Hard Align ===== */
+.yua-timeline-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.yua-bullet-col {
+  width: 24px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.yua-bullet-line {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  background: #e5e7eb;
+}
+
+.yua-bullet-line.top {
+  top: 0;
+  height: 50%;
+}
+
+.yua-bullet-line.bottom {
+  bottom: 0;
+  height: 50%;
+}
+
+/* =====================================================
+   Thinking / Drawer Typography (SSOT / Scoped Only)
+   - 전역(body/.chat-markdown) 영향 0
+   - 컴포넌트 루트에 data-yua-panel="thinking|drawer" 붙어있는 전제
+===================================================== */
+
+/* INLINE (상단 한줄 요약) */
+[data-yua-panel="thinking"] .yua-inline-line {
+  font-size: 18px;
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+/* Drawer 타이틀 */
+[data-yua-panel="drawer"] .yua-drawer-title {
+ font-size: 15px;
+ font-weight: 600;
+ line-height: 1.42;
+ margin-bottom: 2px;
+}
+html.dark [data-yua-panel="drawer"] .yua-drawer-title {
+  color: var(--text-primary);
+}
+
+/* Drawer 본문 */
+[data-yua-panel="drawer"] .yua-drawer-body {
+  font-size: 16px;
+  line-height: 1.58; /* 🔥 살짝 압축 */
+  color: #4b5563;
+  margin-top: 2px; /* 🔥 제목 간격 줄임 */
+}
+html.dark [data-yua-panel="drawer"] .yua-drawer-body {
+  color: var(--text-secondary);
+}
+
+/* Drawer 전체 리듬(선택) */
+[data-yua-panel="drawer"] .yua-drawer-content {
+  line-height: 1.68;
+}
+ /* =========================================
+    Drawer Segment Stagger (SSOT)
+ ========================================= */
+
+ /* Drawer segment stagger */
+.animate-yua-drawer-segment {
+  animation: yuaDrawerIn 0.35s cubic-bezier(.2,.8,.2,1) both;
+}
+
+@keyframes yuaDrawerIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Skeleton */
+.yua-skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    #f3f4f6 25%,
+    #e5e7eb 37%,
+    #f3f4f6 63%
+  );
+  background-size: 400% 100%;
+  animation: yuaSkeletonShimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes yuaSkeletonShimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+.animate-yua-skeleton-fade {
+  animation: yuaFadeIn 0.2s ease-out;
+}
+
+
+@keyframes yuaFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-yua-fade-in {
+  animation: yuaFadeIn 260ms ease-out forwards;
+}
+
+
+
+[data-yua-panel="drawer"] .yua-drawer-body {
+  white-space: pre-wrap;   /* 🔥 중요 */
+  word-break: break-word;
+}
+
+/* =========================
+   Thinking Inline (2줄 + clamp)
+========================= */
+
+.yua-inline-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 720px;
+}
+
+.yua-inline-line {
+  position: relative;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;      /* 🔥 최대 2줄 */
+  line-clamp: 2; 
+  -webkit-box-orient: vertical;
+
+  overflow: hidden;
+  white-space: normal;
+  word-break: break-word;
+
+  font-size: 17px;
+  line-height: 1.65;
+  font-weight: 600;
+  color: #4b5563;
+}
+html.dark .yua-inline-line {
+color: var(--text-secondary);
+}
+
+.yua-typewriter {
+  animation: none; /* 🔥 CSS 애니메이션 제거 (JS로 제어) */
+}
+.yua-source-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.yua-source-tooltip {
+  position: absolute;
+  top: 120%;
+  left: 0;
+  z-index: 50;
+}
+/* =========================
+   Search Highlight
+========================= */
+
+.search-highlight-active {
+  animation: search-pulse 2s ease-out;
+}
+
+@keyframes search-pulse {
+  0%   { background-color: rgba(59, 130, 246, 0.15); }
+  100% { background-color: transparent; }
+}
+
+html.dark .search-highlight-active {
+  animation: search-pulse-dark 2s ease-out;
+}
+
+@keyframes search-pulse-dark {
+  0%   { background-color: rgba(59, 130, 246, 0.2); }
+  100% { background-color: transparent; }
+}
+
+/* ==================================================
+   DeepThinkingDrawer Timeline (ChatGPT-ish)
+   - 촘촘한 행간
+   - dot + 연결선
+   - 제목은 "적당히"만 진하게
+================================================== */
+
+.yua-drawer-timeline{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;              /* 🔥 행간(블록 간격) 줄임 */
+  padding-left: 0;
+}
+
+.yua-drawer-node{
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* rail: line + dot */
+.yua-drawer-rail{
+  position: relative;
+  width: 18px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.yua-drawer-dot{
+  position: relative;
+  margin-top: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #6b7280;    /* gray-500 */
+}
+
+.yua-drawer-line{
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  background: #e5e7eb;    /* gray-200 */
+}
+.yua-drawer-line-top{
+  top: 0;
+  height: 14px;
+}
+.yua-drawer-line-bottom{
+  top: 18px;
+  bottom: 0;
+}
+/* 🔥 마지막 노드는 연결선 제거 */
+[data-yua-panel="drawer"]
+  .yua-drawer-node:last-child
+  .yua-drawer-line-bottom {
+  display: none;
+}
+.yua-drawer-content{
+  min-width: 0;
+  flex: 1;
+}
+.yua-drawer-line {
+  transition: height 260ms cubic-bezier(.22,.61,.36,1);
+}
+.yua-drawer-title{
+  font-size: 17px;
+  line-height: 1.35;      /* 🔥 촘촘 */
+  font-weight: 600;       /* ✅ “적당히” 진하게 */
+  color: #111827;         /* gray-900 */
+  letter-spacing: -0.01em;
+  margin-bottom: 3px;     /* 🔥 제목-본문 간격 줄임 */
+}
+
+.yua-drawer-body{
+ font-size: 17px;
+  line-height: 1.65;      /* 🔥 본문 행간 줄임 */
+  color: #4b5563;         /* gray-600 */
+}
+
+/* ============================================
+   Assistant Source Chips (ChatGPT-like Pills)
+============================================ */
+
+.yua-source-chip {
+  display: inline-flex;
+  align-items: center;
+
+  max-width: 180px;
+  overflow: hidden;
+
+  font-size: 12px;
+  font-weight: 500;
+
+  padding: 4px 10px;
+  border-radius: 999px;
+
+  background: #f5f6f8;
+  color: #4b5563;
+
+  text-decoration: none;
+  cursor: pointer;
+
+  transition: background 0.15s ease, transform 0.15s ease;
+
+  position: relative;
+  animation: yuaChipIn 0.25s ease both;
+}
+
+html.dark .yua-source-chip{
+  background: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.92);
+}
+
+html.dark .yua-source-chip:hover{
+  background: rgba(255,255,255,0.16);
+}
+
+.yua-source-chip-label {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* =========================
+   Tooltip Preview
+========================= */
+.yua-source-tooltip {
+  position: absolute;
+  bottom: 130%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: 260px;
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+
+  box-shadow:
+    0 12px 28px rgba(0,0,0,0.08),
+    0 2px 8px rgba(0,0,0,0.05);
+
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.18s ease;
+  z-index: 40;
+}
+
+.yua-source-chip:hover .yua-source-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.yua-source-tooltip-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: #111827;
+}
+
+.yua-source-tooltip-host {
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.yua-source-tooltip-preview {
+  font-size: 12px;
+  color: #374151;
+  line-height: 1.4;
+}
+
+/* =========================
+   Stagger Animation
+========================= */
+
+@keyframes yuaChipIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* ==============================
+   Chunk Row Layout (ChatGPT 스타일)
+============================== */
+
+.yua-chunk-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.yua-chunk-main {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+}
+
+.yua-chunk-side {
+  width: 90px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.yua-tool-chip {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  background: #f3f4f6;
+  color: #374151;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.yua-tool-chip:hover {
+  background: #e5e7eb;
+}
+ .yua-source-chip {
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+
+   font-size: 12px;
+   font-weight: 500;
+
+   padding: 4px 10px;
+   border-radius: 999px;
+
+   background: #f5f6f8;
+   color: #4b5563;
+
+   text-decoration: none;
+   cursor: pointer;
+
+   transition: background 0.15s ease, transform 0.15s ease;
+ }
+
+ .yua-source-chip:hover {
+   background: #e8eaee;
+   transform: translateY(-1px);
+ }
+.yua-title-swap {
+  display: inline-block;
+  animation: yuaTitleSwap 260ms cubic-bezier(.22,.61,.36,1);
+}
+
+@keyframes yuaTitleSwap {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.chat-markdown .katex {
+  font-size: 0.98em;
+}
+
+.chat-markdown .katex-display {
+  font-size: 1.02em;
+}
+/* =====================================================
+   DeepThinkingDrawer — Density / Contrast Upgrade (SCOPED)
+   - ONLY applies inside data-yua-panel="drawer"
+   - Assistant 본문/Markdown 영향 0
+===================================================== */
+
+/* 1️⃣ 패널 레이어 대비 강화 */
+[data-yua-panel="drawer"] {
+  background: #ffffff;
+ font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont,
+   "SF Pro Text", "Inter", "Segoe UI", sans-serif;
+ letter-spacing: -0.01em;
+}
+
+/* 내부 콘텐츠 대비 미세 조정 */
+[data-yua-panel="drawer"] .yua-drawer-content {
+  line-height: 1.62; /* 1.68 → 약간 압축 */
+}
+
+/* 2️⃣ 타이틀 밀도 조정 */
+[data-yua-panel="drawer"] .yua-drawer-title {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+/* 3️⃣ 본문 밀도 조정 */
+[data-yua-panel="drawer"] .yua-drawer-body {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+[data-yua-panel="drawer"] .yua-md-p {
+  margin: 4px 0; /* 🔥 블록 간 간격 유지하되 조밀하게 */
+}
+
+[data-yua-panel="drawer"] .yua-md-ul {
+  margin: 8px 0;
+  padding-left: 18px;
+}
+
+[data-yua-panel="drawer"] .yua-md-li {
+  margin: 4px 0;
+}
+/* 4️⃣ 타임라인 간격 축소 */
+[data-yua-panel="drawer"] .yua-drawer-timeline {
+  gap: 10px;
+}
+
+/* 5️⃣ rail 색 대비 미세 조정 */
+[data-yua-panel="drawer"] .yua-drawer-dot {
+ width: 6px;
+ height: 6px;
+ background: #9ca3af
+}
+
+[data-yua-panel="drawer"] .yua-drawer-line {
+ background: rgba(255,255,255,0.15);
+ width: 1.2px;
+}
+
+/* 6️⃣ phase label 대비 */
+[data-yua-panel="drawer"] .text-gray-700 {
+  color: #374151 !important;
+}
+
+/* 7️⃣ skeleton 약간 부드럽게 */
+[data-yua-panel="drawer"] .yua-skeleton-line {
+  opacity: 0.85;
+}
+[data-yua-panel="drawer"] .yua-drawer-node {
+  padding-bottom: 4px;
+}
+.yua-search-pill {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #374151;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.yua-search-pill:hover {
+  background: #e5e7eb;
+}
+html.dark .yua-search-pill {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-secondary);
+}
+html.dark .yua-search-pill:hover {
+  background: rgba(255,255,255,0.12);
+}
+.yua-sources-block {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+html.dark .yua-sources-block {
+  border-top: 1px solid rgba(255,255,255,0.10);
+}
+
+.yua-sources-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+}
+html.dark .yua-sources-title {
+  color: var(--text-secondary);
+}
+
+.yua-source-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f9fafb;
+  transition: background 0.15s ease;
+  text-decoration: none;
+  align-items: center;
+}
+html.dark .yua-source-card {
+  background: #1b1b1b;
+}
+
+.yua-source-card:hover {
+  background: #f3f4f6;
+}
+html.dark .yua-source-card:hover {
+  background: #1f1f1f;
+}
+
+.yua-source-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+html.dark .yua-source-card-title {
+  color: var(--text-primary);
+}
+
+.yua-source-card-host {
+  font-size: 12px;
+  color: #6b7280;
+}
+html.dark .yua-source-card-host {
+  color: var(--text-secondary);
+}
+
+.yua-source-card-preview {
+  font-size: 13px;
+  color: #4b5563;
+}
+html.dark .yua-source-card-preview {
+  color: var(--text-secondary);
+}
+
+.yua-fade-in {
+  animation: yuaFadeIn 240ms ease-out forwards;
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+@keyframes yuaFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes yua-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-yua-slide-down {
+  animation: yua-slide-down 0.45s ease-out forwards;
+}
+
+/* =========================================
+   Source Chip — Parens Hide (Scoped Only)
+   - 마크다운 전체 건드리지 않음
+   - 소스칩 양옆 괄호만 시각적으로 숨김
+========================================= */
+
+/* "(" 바로 뒤에 소스칩이 올 때 */
+.chat-markdown p > .yua-source-chip:first-child::before,
+.chat-markdown li > .yua-source-chip:first-child::before,
+.chat-markdown blockquote > .yua-source-chip:first-child::before,
+.chat-markdown td > .yua-source-chip:first-child::before {
+  content: "";
+}
+
+/* ")" 바로 앞에 소스칩이 올 때 */
+.chat-markdown p > .yua-source-chip:last-child::after,
+.chat-markdown li > .yua-source-chip:last-child::after,
+.chat-markdown blockquote > .yua-source-chip:last-child::after,
+.chat-markdown td > .yua-source-chip:last-child::after {
+  content: "";
+}
+
+/* 실제 괄호 텍스트 숨김 */
+.chat-markdown p:has(> .yua-source-chip) {
+  font-variant-ligatures: none;
+}
+
+/* 괄호 제거 핵심 */
+.chat-markdown p > .yua-source-chip:first-child {
+  margin-left: -0.25em;
+}
+
+.chat-markdown p > .yua-source-chip:last-child {
+  margin-right: -0.25em;
+}
+/* =========================
+   Stable Favicon Layout (SSOT)
+========================= */
+.yua-favicon-slot{
+  width:16px;
+  height:16px;
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.yua-favicon-img{
+  width:16px;
+  height:16px;
+  border-radius:4px;
+  object-fit:contain;
+}
+
+.yua-favicon-fallback{
+  width:16px;
+  height:16px;
+  border-radius:4px;
+  background:#e5e7eb;
+}
+/* =========================
+   MOBILE SAFE GUARD (NO DESKTOP IMPACT)
+========================= */
+
+@media (max-width: 1024px) {
+
+  html, body {
+    height: 100%;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .chat-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scrollbar-width: none;
+    scrollbar-gutter: auto !important;
+  }
+  .chat-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+}
+
+/* 🔹 lang + spinner wrapper */
+.codeblock-lang-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 🔹 spinner */
+.codeblock-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.15);
+  border-top: 2px solid #6b7280;
+  animation: codeSpin 0.8s linear infinite;
+}
+
+@keyframes codeSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.prism-fade-wrapper {
+  position: relative;
+  display: block;
+}
+
+.prism-raw-layer,
+.prism-highlight-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: pre;
+  width: 100%;
+  transition: opacity 220ms ease;
+}
+
+.prism-raw-layer {
+  position: relative;
+}
+
+.prism-highlight-layer {
+  pointer-events: none; /* selection은 raw layer 기준 */
+}
+
+.codeblock-pre,
+.codeblock-code,
+.codeblock-code * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.assistant-content .chat-markdown,
+.assistant-content .chat-markdown * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.codeblock-pre,
+.codeblock-code {
+  cursor: text;
+}
+
+/* =========================
+   Step Projection Overrides v3
+   - ChatGPT Activity Panel style
+   - safe override (no class rename)
+========================= */
+
+.yua-step-row.yua-drawer-node {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  column-gap: 12px;
+  align-items: stretch;
+}
+
+/* =========================
+   Timeline rail
+========================= */
+
+.yua-step-rail {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  align-self: stretch;
+
+  --yua-step-dot: 12px;
+  --yua-step-dot-offset: 8px;
+}
+
+/* dot */
+
+.yua-step-dot {
+  width: var(--yua-step-dot);
+  height: var(--yua-step-dot);
+  background: #9ca3af;
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+
+  margin-top: var(--yua-step-dot-offset);
+}
+html.dark .yua-step-dot {
+  background: rgba(255,255,255,0.55);
+}
+
+/* timeline lines */
+
+.yua-step-line {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  background: #e5e7eb;
+}
+html.dark .yua-step-line {
+  background: rgba(255,255,255,0.12);
+}
+
+.yua-step-line-top {
+  top: 0;
+  height: calc(var(--yua-step-dot-offset) + (var(--yua-step-dot) / 2));
+}
+
+.yua-step-line-bottom {
+  top: calc(var(--yua-step-dot-offset) + (var(--yua-step-dot) / 2));
+  bottom: -10px;
+}
+
+/* =========================
+   Title
+========================= */
+
+.yua-step-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #111827;
+
+  margin-bottom: 2px;
+}
+html.dark .yua-step-title {
+  color: var(--text-primary);
+}
+
+/* =========================
+   Sources container
+========================= */
+
+.yua-step-sources {
+  margin-top: 6px;
+}
+
+/* =========================
+   Sources row (ChatGPT style)
+========================= */
+
+.yua-step-source-row {
+  display: flex;
+  align-items: center;
+
+  flex-wrap: wrap;
+  gap: 6px;
+
+  max-height: 52px;
+  overflow: hidden;
+
+  transition: max-height 160ms ease;
+}
+
+.yua-step-source-row[data-expanded="true"] {
+  max-height: 400px;
+}
+
+/* =========================
+   Source chips
+========================= */
+
+.yua-step-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 2px 8px;
+
+  border-radius: 999px;
+
+  font-size: 11px;
+  font-weight: 500;
+
+  background: #f3f4f6;
+  color: #374151;
+
+  white-space: nowrap;
+
+  transition: background 120ms ease;
+}
+html.dark .yua-step-source-chip {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-secondary);
+}
+
+.yua-step-source-chip:hover {
+  background: #e5e7eb;
+}
+html.dark .yua-step-source-chip:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.yua-step-source-label {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =========================
+   "+N 더보기" chip
+========================= */
+
+.yua-step-source-more {
+  cursor: pointer;
+
+  display: inline-flex;
+  align-items: center;
+
+  padding: 2px 8px;
+
+  border-radius: 999px;
+
+  font-size: 11px;
+  font-weight: 500;
+
+  background: #e5e7eb;
+  color: #374151;
+}
+html.dark .yua-step-source-more {
+  background: rgba(255,255,255,0.10);
+  color: var(--text-secondary);
+}
+
+/* =========================
+   Body text
+========================= */
+
+.yua-step-body {
+  margin-top: 8px;
+}
+
+/* markdown */
+
+.yua-step-md-p {
+  font-size: 15px;
+  line-height: 1.7;
+  margin: 6px 0;
+}
+
+.yua-step-md-ul {
+  padding-left: 18px;
+  margin: 6px 0;
+}
+
+.yua-step-md-li {
+  margin: 4px 0;
+}
+
+.yua-step-md-h {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+  margin: 6px 0;
+}
+
+/* body link (NOT chip) */
+
+.yua-step-md-link {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+html.dark .yua-step-md-link {
+  color: #8ab4ff;
+}
+
+.yua-step-ascii-pre {
+  margin: 6px 0;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #1f2937;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: pre;
+  overflow-x: auto;
+  word-break: normal;
+  overflow-wrap: normal;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+}
+html.dark .yua-step-ascii-pre {
+  border: 1px solid rgba(255,255,255,0.10);
+  background: #1b1b1b;
+  color: var(--text-primary);
+}
+
+/* =========================
+   Step translate controls
+========================= */
+.yua-step-timeline .yua-step-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.yua-step-timeline .yua-step-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.yua-step-timeline .yua-step-translate-btn {
+  flex: 0 0 auto;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 9999px;
+  border: 1px solid #d8e1ef;
+  background: #f7faff;
+  color: #4b5563;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  transition: all 120ms ease;
+}
+html.dark .yua-step-timeline .yua-step-translate-btn {
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+}
+
+.yua-step-timeline .yua-step-translate-btn:hover:not(:disabled) {
+  border-color: #c7d8f4;
+  background: #eef5ff;
+  color: #374151;
+}
+html.dark .yua-step-timeline .yua-step-translate-btn:hover:not(:disabled) {
+  border-color: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.10);
+  color: var(--text-primary);
+}
+
+.yua-step-timeline .yua-step-translate-btn:disabled {
+  opacity: 0.62;
+  cursor: default;
+}
+
+.yua-lang-picker {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.yua-lang-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 9999px;
+  border: 1px solid #d8e1ef;
+  background: #f7faff;
+  color: #4b5563;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+}
+html.dark .yua-lang-trigger {
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+}
+
+.yua-lang-trigger:hover {
+  border-color: #c7d8f4;
+  background: #eef5ff;
+  color: #374151;
+}
+html.dark .yua-lang-trigger:hover {
+  border-color: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.10);
+  color: var(--text-primary);
+}
+
+.yua-lang-globe-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  border: 1.5px solid #3b82f6;
+  background: radial-gradient(circle at 40% 35%, #e0f2fe 0%, #93c5fd 58%, #60a5fa 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+}
+
+.yua-lang-trigger-text {
+  white-space: nowrap;
+}
+
+.yua-lang-pocket {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 112px;
+  max-height: 110px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  padding: 6px;
+  box-shadow:
+    0 12px 24px rgba(15, 23, 42, 0.10),
+    0 2px 8px rgba(15, 23, 42, 0.06);
+  z-index: 40;
+}
+html.dark .yua-lang-pocket {
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #1b1b1b;
+  box-shadow:
+    0 12px 24px rgba(0,0,0,0.35),
+    0 2px 8px rgba(0,0,0,0.25);
+}
+
+.yua-lang-chip {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #374151;
+}
+html.dark .yua-lang-chip {
+  color: var(--text-secondary);
+}
+
+.yua-lang-chip:hover {
+  background: #f3f4f6;
+}
+html.dark .yua-lang-chip:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.yua-lang-chip.is-active {
+  background: #eaf2ff;
+  color: #1d4ed8;
+}
+html.dark .yua-lang-chip.is-active {
+  background: rgba(255,255,255,0.12);
+  color: var(--text-primary);
+}
+
+.yua-lang-pocket::-webkit-scrollbar {
+  width: 6px;
+}
+
+.yua-lang-pocket::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 9999px;
+}
+html.dark .yua-lang-pocket::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.20);
+}
+
+/* =========================
+   Tiptap Block Editor (SSOT)
+========================= */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ProseMirror {
+  outline: none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--text-muted);
+  pointer-events: none;
+  height: 0;
+}
+
+/* Task list */
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.ProseMirror ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #111827;
+  cursor: pointer;
+}
+html.dark .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+  accent-color: #60a5fa;
+}
+
+/* Table */
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+.ProseMirror th,
+.ProseMirror td {
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+  min-width: 80px;
+}
+.ProseMirror th {
+  background: var(--wash);
+  font-weight: 600;
+  font-size: 0.875em;
+}
+html.dark .ProseMirror th {
+  background: rgba(255,255,255,0.04);
+}
+.ProseMirror .selectedCell {
+  background: rgba(59,130,246,0.08);
+}
+html.dark .ProseMirror .selectedCell {
+  background: rgba(96,165,250,0.12);
+}
+
+/* Code block */
+.ProseMirror pre {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 0.875em;
+  line-height: 1.6;
+}
+html.dark .ProseMirror pre {
+  background: #11111b;
+}
+.ProseMirror pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+
+/* Inline code */
+.ProseMirror code {
+  background: rgba(0,0,0,0.05);
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-size: 0.875em;
+}
+html.dark .ProseMirror code {
+  background: rgba(255,255,255,0.08);
+}
+
+/* Blockquote */
+.ProseMirror blockquote {
+  border-left: 3px solid var(--line);
+  padding-left: 16px;
+  margin-left: 0;
+  color: var(--text-secondary);
+}
+
+/* Horizontal rule */
+.ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 1.5em 0;
+}
+
+/* Image */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1em 0;
+}
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Selection caret */
+.ProseMirror .ProseMirror-gapcursor::after {
+  border-top-color: var(--ink);
+}
+
+/* Lists */
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5em;
+}
+.ProseMirror li > p {
+  margin: 0;
+}
+
+/* Headings */
+.ProseMirror h1 { font-size: 1.875em; font-weight: 700; margin: 1em 0 0.4em; }
+.ProseMirror h2 { font-size: 1.5em; font-weight: 600; margin: 0.8em 0 0.3em; }
+.ProseMirror h3 { font-size: 1.25em; font-weight: 600; margin: 0.6em 0 0.2em; }
+
+/* Highlight */
+.ProseMirror mark {
+  background: #fef08a;
+  border-radius: 2px;
+  padding: 1px 2px;
+}
+html.dark .ProseMirror mark {
+  background: rgba(254,240,138,0.3);
+  color: inherit;
+}
+
+/* Drop cursor */
+.ProseMirror .ProseMirror-dropcursor {
+  color: var(--text-muted);
+}
+
+/* Link */
+.yua-editor-link {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+html.dark .yua-editor-link {
+  color: #60a5fa;
+}
+
+/* Callout blocks */
+.yua-callout {
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 0.75em 0;
+  border-left: 4px solid;
+}
+.yua-callout > *:first-child { margin-top: 0; }
+.yua-callout > *:last-child { margin-bottom: 0; }
+
+.yua-callout-info { background: #eff6ff; border-color: #3b82f6; }
+.yua-callout-warning { background: #fffbeb; border-color: #f59e0b; }
+.yua-callout-success { background: #f0fdf4; border-color: #22c55e; }
+.yua-callout-danger { background: #fef2f2; border-color: #ef4444; }
+.yua-callout-note { background: #f5f3ff; border-color: #8b5cf6; }
+
+html.dark .yua-callout-info { background: rgba(59,130,246,0.08); }
+html.dark .yua-callout-warning { background: rgba(245,158,11,0.08); }
+html.dark .yua-callout-success { background: rgba(34,197,94,0.08); }
+html.dark .yua-callout-danger { background: rgba(239,68,68,0.08); }
+html.dark .yua-callout-note { background: rgba(139,92,246,0.08); }
+
+/* Selection */
+.ProseMirror ::selection {
+  background: rgba(37, 99, 235, 0.2);
+}
+html.dark .ProseMirror ::selection {
+  background: rgba(96, 165, 250, 0.25);
+}
+
+/* File Block */
+.file-block-node {
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.file-block-node:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+html.dark .file-block-node:hover {
+  border-color: rgba(96, 165, 250, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes fileBlockShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.file-block-uploading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent 30%, rgba(59,130,246,0.08) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: fileBlockShimmer 1.5s infinite;
+  pointer-events: none;
+}
+
+.ProseMirror.file-drag-over {
+  outline: 2px dashed rgba(59, 130, 246, 0.5);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+/* Spreadsheet preview table */
+.file-block-table {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.15) transparent;
+}
+.file-block-table::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.file-block-table::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.15);
+  border-radius: 3px;
+}
+html.dark .file-block-table::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+}
+
+/* =========================
+   Memory Indicator
+========================= */
+@keyframes memory-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.3); }
+  50%      { box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+}
+.memory-indicator-pending {
+  animation: memory-pulse 1.2s ease-in-out infinite;
+}
+
+/* ===== StreamOverlay Stable Container ===== */
+.stream-overlay-stable {
+  position: relative;
+  margin-bottom: 8px;
+}
+.stream-overlay-slot {
+  overflow: hidden;
+  /* 닫힐 때만 transition, 열릴 때는 즉시 */
+  transition: max-height 200ms ease-out, opacity 180ms ease-out;
+  max-height: 0;
+  opacity: 0;
+min-height: 44px;
+transition: opacity 120ms ease;
+
+}
+.stream-overlay-slot--active {
+  max-height: 300px;
+  opacity: 1;
+  transition: none; /* 열릴 때 즉시 */
+}
+
+/* ===== AssistantMessage Overlay Collapse ===== */
+.stream-overlay-collapse {
+  overflow: hidden;
+  transition: max-height 250ms ease-out, opacity 200ms ease-out;
+  max-height: 0;
+  opacity: 0;
+}
+.stream-overlay-collapse--open {
+  max-height: 600px;
+  opacity: 1;
+  transition: none; /* 열릴 때 즉시 */
+}

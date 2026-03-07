@@ -1,0 +1,19 @@
+packages:
+  - yua-web
+  - yua-shared
+  - yua-backend
+  - yua-mobile
+  - yua-console
+
+nodeLinker: isolated
+
+onlyBuiltDependencies:
+  - '@firebase/util'
+  - '@prisma/client'
+  - '@scarf/scarf'
+  - cpu-features
+  - node-pty
+  - protobufjs
+  - sharp
+  - ssh2
+  - unrs-resolver

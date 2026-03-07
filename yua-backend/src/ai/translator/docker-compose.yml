@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  translator:
+    build: ./translator
+    ports:
+      - "8088:8088"
+    environment:
+      - GOOGLE_TRANSLATE_KEY=${GOOGLE_TRANSLATE_KEY}  
+    depends_on:
+      - redis

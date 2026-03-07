@@ -1,0 +1,21 @@
+/* Markdown 기본 텍스트 컬러 */
+.prose {
+    color: #e2e8f0;
+  }
+  
+  /* code block */
+  .prose pre {
+    background: #0f172a !important;
+    border-radius: 10px;
+    padding: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+  }
+  
+  /* inline code */
+  .prose code {
+    background: rgba(30, 41, 59, 0.7);
+    padding: 2px 5px;
+    border-radius: 6px;
+    color: #4ade80;
+  }
+  

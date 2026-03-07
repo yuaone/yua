@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+argostranslate
+redis
+langdetect

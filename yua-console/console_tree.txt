@@ -1,0 +1,191 @@
+.
+├── Dockerfile.dev
+├── console_tree.txt
+├── next
+├── next-env.d.ts
+├── next.config.js
+├── package-lock.json
+├── package.json
+├── postcss.config.js
+├── public
+│   ├── fonts
+│   ├── glass
+│   │   └── bg-blur.png
+│   └── icons
+│       ├── bot.svg
+│       ├── branch.svg
+│       ├── copy.svg
+│       ├── refresh.svg
+│       ├── stop.svg
+│       ├── user.svg
+│       └── yua-logo.svg
+├── src
+│   ├── ai
+│   │   └── utils
+│   │       └── pick-model.ts
+│   ├── app
+│   │   ├── api
+│   │   │   ├── auth
+│   │   │   │   ├── login
+│   │   │   │   └── register
+│   │   │   ├── billing
+│   │   │   │   └── toss
+│   │   │   ├── chat
+│   │   │   │   ├── list
+│   │   │   │   ├── load
+│   │   │   │   ├── regen
+│   │   │   │   ├── save
+│   │   │   │   └── stream
+│   │   │   ├── console
+│   │   │   │   ├── fs
+│   │   │   │   ├── linux
+│   │   │   │   └── yua
+│   │   │   ├── instance
+│   │   │   │   ├── check
+│   │   │   │   ├── deploy
+│   │   │   │   ├── disk-info
+│   │   │   │   ├── firewall
+│   │   │   │   ├── health
+│   │   │   │   ├── logs
+│   │   │   │   ├── resize-disk
+│   │   │   │   ├── restart
+│   │   │   │   └── snapshot
+│   │   │   ├── keys
+│   │   │   │   └── create
+│   │   │   ├── metrics
+│   │   │   │   └── route.ts
+│   │   │   ├── usage
+│   │   │   │   └── route.ts
+│   │   │   └── ws
+│   │   │       └── ssh
+│   │   ├── chat
+│   │   │   └── page.tsx
+│   │   ├── console
+│   │   │   └── page.tsx
+│   │   ├── instance
+│   │   │   ├── [id]
+│   │   │   │   ├── logs
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── terminal
+│   │   │   └── page.tsx
+│   │   ├── layout.tsx
+│   │   ├── login
+│   │   │   └── page.tsx
+│   │   ├── page.tsx
+│   │   └── signup
+│   │       └── page.tsx
+│   ├── components
+│   │   ├── chat
+│   │   │   ├── ChatActions.tsx
+│   │   │   ├── ChatContainer.tsx
+│   │   │   ├── ChatInput.tsx
+│   │   │   ├── ChatMessageItem.tsx
+│   │   │   ├── ChatStreamRenderer.tsx
+│   │   │   ├── CodeCopyButton.tsx
+│   │   │   ├── MarkdownRenderer.tsx
+│   │   │   ├── MessageBranchLine.tsx
+│   │   │   ├── MessageCopyButton.tsx
+│   │   │   └── VirtualizedMessages.tsx
+│   │   ├── console
+│   │   │   ├── FileDownloader.tsx
+│   │   │   ├── FileUploader.tsx
+│   │   │   ├── ShellStatus.tsx
+│   │   │   ├── ShellToggle.tsx
+│   │   │   ├── Terminal.tsx
+│   │   │   └── files
+│   │   │       ├── FileExplorer.tsx
+│   │   │       └── FileTree.tsx
+│   │   ├── instance
+│   │   │   └── LogsPanel.tsx
+│   │   ├── layout
+│   │   │   └── Header.tsx
+│   │   ├── sidebar
+│   │   │   ├── AuthPanel.tsx
+│   │   │   ├── BillingPanel.tsx
+│   │   │   ├── BootDiskPanel.tsx
+│   │   │   ├── InstancePanel.tsx
+│   │   │   ├── KeysPanel.tsx
+│   │   │   ├── LeftSidebar.tsx
+│   │   │   ├── MetricsPanel.tsx
+│   │   │   ├── ModelPanel.tsx
+│   │   │   ├── RightSidebar.tsx
+│   │   │   ├── SidebarTabs.tsx
+│   │   │   └── UsagePanel.tsx
+│   │   ├── terminal
+│   │   │   └── SSHTerminalWindow.tsx
+│   │   └── ui
+│   │       ├── GlassPanel.tsx
+│   │       ├── IconButton.tsx
+│   │       └── Loader.tsx
+│   ├── console
+│   │   ├── fs
+│   │   │   └── fs-client.ts
+│   │   ├── linux
+│   │   │   ├── docker-manager.ts
+│   │   │   ├── pty-proxy.ts
+│   │   │   └── route.ts
+│   │   ├── ssh
+│   │   │   ├── command-runner.ts
+│   │   │   ├── connection.ts
+│   │   │   ├── keymap.ts
+│   │   │   ├── raw-detector.ts
+│   │   │   ├── resize.ts
+│   │   │   ├── session-manager.ts
+│   │   │   └── switcher.ts
+│   │   └── yua-shell
+│   │       ├── ast.ts
+│   │       ├── compiler.ts
+│   │       ├── executor.ts
+│   │       ├── intent-builder.ts
+│   │       ├── parser.ts
+│   │       ├── runtime
+│   │       │   ├── dispatcher.ts
+│   │       │   ├── engine-bridge.ts
+│   │       │   ├── evaluation-engine.ts
+│   │       │   └── index.ts
+│   │       ├── supervisor.ts
+│   │       ├── symbol-resolver.ts
+│   │       └── tokenizer.ts
+│   ├── hooks
+│   │   ├── useChatHistory.ts
+│   │   ├── useChatState.ts
+│   │   ├── useChatStream.ts
+│   │   ├── useSidebar.ts
+│   │   └── useTerminal.ts
+│   ├── lib
+│   │   ├── api.ts
+│   │   ├── auth.ts
+│   │   ├── conversation-memory.ts
+│   │   ├── db.ts
+│   │   ├── markdown.ts
+│   │   ├── server-memory.ts
+│   │   ├── storage.ts
+│   │   ├── streamer.ts
+│   │   └── virtualization.ts
+│   ├── styles
+│   │   ├── chat.css
+│   │   ├── globals.css
+│   │   ├── sidebar.css
+│   │   └── terminal.css
+│   ├── terminal
+│   │   ├── highlighter-bash.ts
+│   │   ├── highlighter-qgml.ts
+│   │   ├── parser-utils.ts
+│   │   └── renderer.ts
+│   └── types
+│       ├── apikey.ts
+│       ├── billing.ts
+│       ├── chat.ts
+│       ├── message.ts
+│       ├── mime.d.ts
+│       └── user.ts
+├── stream-engine
+│   ├── db.ts
+│   ├── package-lock.json
+│   ├── package.json
+│   └── stream-server.ts
+├── tailwind.config.js
+├── tsconfig.json
+└── yua-console@0.1.0
+
+70 directories, 119 files

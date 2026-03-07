@@ -1,0 +1,27 @@
+name: YUA Signal Batch
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # 매일 새벽 3시 (KST 아님! UTC 기준)
+  workflow_dispatch:     # 수동 실행 가능
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run signal batch
+        run: npm run batch:signals
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

@@ -1,0 +1,12 @@
+.xterm {
+    padding: 6px;
+  }
+  
+  .xterm .xterm-viewport {
+    background-color: #0f172a !important;
+  }
+  
+  .xterm .xterm-screen {
+    color: #e2e8f0;
+  }
+  

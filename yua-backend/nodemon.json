@@ -1,0 +1,15 @@
+{
+  "watch": ["src"],
+  "ext": "ts,json",
+  "ignore": [
+    "node_modules",
+    "dist",
+    ".git",
+   "**/*.spec.ts",
+   "**/*.test.ts",
+   "prisma",
+   "scripts"
+  ],
+  "exec": "ts-node --transpile-only src/server/server.ts",
+  "verbose": true
+}

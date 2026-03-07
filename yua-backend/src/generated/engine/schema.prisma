@@ -1,0 +1,249 @@
+// ------------------------------------------------------
+//  ENGINE DATABASE (PostgreSQL)
+//  - Engine Instance
+//  - Engine Binding (SSOT)
+//  - Enterprise Policy Layer (SSOT)
+// ------------------------------------------------------
+
+generator engineClient {
+  provider = "prisma-client-js"
+  output   = "../generated/engine"
+}
+
+datasource pg {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------
+
+enum InstanceStatus {
+  CREATED
+  RUNNING
+  STOPPED
+  ERROR
+}
+
+enum EngineType {
+  chat
+  emotion
+  memory
+  finance
+}
+
+// ------------------------------------------------------
+// ENGINE INSTANCE
+// ------------------------------------------------------
+
+model Instance {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cpuTierId    String
+  nodeTierId   String
+  engineTierId String
+  qpuTierId    String?
+  omegaTierId  String?
+
+  status    InstanceStatus @default(CREATED)
+  autoscale Boolean        @default(false)
+
+  cpuTier    CpuTier    @relation(fields: [cpuTierId], references: [id])
+  nodeTier   NodeTier   @relation(fields: [nodeTierId], references: [id])
+  engineTier EngineTier @relation(fields: [engineTierId], references: [id])
+  qpuTier    QpuTier?   @relation(fields: [qpuTierId], references: [id])
+  omegaTier  OmegaTier? @relation(fields: [omegaTierId], references: [id])
+
+  // 🔑 Engine Binding (SSOT)
+  engines InstanceEngine[]
+
+  // 🛡 Enterprise Policy (SSOT)
+  policy InstancePolicy?
+
+  // 🔐 Terminal Sessions (STEP 4-2 SSOT)
+  terminalSessions TerminalSession[]
+
+  snapshots       Snapshot[]
+  logs            InstanceLog[]
+  billingRecords  BillingRecord[]
+  executionGraphs ExecutionGraph[]
+
+  @@map("engine_instances")
+}
+
+// ------------------------------------------------------
+// INSTANCE ENGINE BINDING (SSOT 핵심)
+// ------------------------------------------------------
+
+model InstanceEngine {
+  id            String     @id @default(cuid())
+  instanceId    String
+  engineType    EngineType
+  enabled       Boolean    @default(true)
+  defaultModel  String
+  allowedModels Json
+  createdAt     DateTime   @default(now())
+
+  instance Instance @relation(fields: [instanceId], references: [id])
+
+  @@unique([instanceId, engineType])
+  @@map("instance_engines")
+}
+
+// ------------------------------------------------------
+// 🛡 ENTERPRISE POLICY LAYER (SSOT FINAL)
+// ------------------------------------------------------
+
+model InstancePolicy {
+  id         String @id @default(cuid())
+  instanceId String @unique
+
+  allowChat    Boolean @default(true)
+  allowEmotion Boolean @default(true)
+  allowMemory  Boolean @default(true)
+  allowFinance Boolean @default(false)
+
+  allowTerminal Boolean @default(false)
+  allowSSH      Boolean @default(false)
+
+  maxTokensPerDay   Int?
+  maxRequestsPerDay Int?
+
+  ipWhitelist Json?
+  regionLock  String?
+
+  auditRequired Boolean @default(false)
+  piiStrictMode Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  instance Instance @relation(fields: [instanceId], references: [id])
+
+  @@map("instance_policies")
+}
+
+// ------------------------------------------------------
+// TIERS
+// ------------------------------------------------------
+
+model CpuTier {
+  id        String     @id @default(cuid())
+  name      String
+  cores     Int
+  price     Float
+  instances Instance[]
+}
+
+model NodeTier {
+  id        String     @id @default(cuid())
+  name      String
+  nodes     Int
+  price     Float
+  instances Instance[]
+}
+
+model EngineTier {
+  id        String     @id @default(cuid())
+  name      String
+  profile   String
+  price     Float
+  instances Instance[]
+}
+
+model QpuTier {
+  id        String     @id @default(cuid())
+  name      String
+  parallel  Boolean
+  price     Float
+  instances Instance[]
+}
+
+model OmegaTier {
+  id        String     @id @default(cuid())
+  name      String
+  cognitive Boolean
+  price     Float
+  instances Instance[]
+}
+
+// ------------------------------------------------------
+// SNAPSHOT / LOGS / BILLING / EXECUTION GRAPH
+// ------------------------------------------------------
+
+model Snapshot {
+  id         String   @id @default(cuid())
+  instanceId String
+  metadata   Json
+  createdAt  DateTime @default(now())
+
+  instance Instance @relation(fields: [instanceId], references: [id])
+}
+
+model InstanceLog {
+  id         String   @id @default(cuid())
+  instanceId String
+  event      String
+  detail     Json
+  createdAt  DateTime @default(now())
+
+  instance Instance @relation(fields: [instanceId], references: [id])
+}
+
+model BillingRecord {
+  id         String   @id @default(cuid())
+  instanceId String
+  amount     Float
+  reason     String
+  createdAt  DateTime @default(now())
+
+  instance Instance @relation(fields: [instanceId], references: [id])
+}
+
+model ExecutionGraph {
+  id         String   @id @default(cuid())
+  instanceId String
+  graph      Json
+  createdAt  DateTime @default(now())
+
+  instance Instance @relation(fields: [instanceId], references: [id])
+}
+
+// ------------------------------------------------------
+// LEGACY TABLE (기존 유지)
+// ------------------------------------------------------
+
+model snapshot_history {
+  id            Int      @id @default(autoincrement())
+  snapshot_name String
+  instance_id   String?
+  created_at    DateTime @default(now())
+}
+
+// ------------------------------------------------------
+// TERMINAL SESSION TOKEN (STEP 4-2 SSOT)
+// ------------------------------------------------------
+
+model TerminalSession {
+  id         String @id @default(cuid())
+  token      String @unique
+  instanceId String
+  userId     String
+  scope      String
+
+  issuedAt       DateTime  @default(now())
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  lastVerifiedAt DateTime?
+
+  instance Instance @relation(fields: [instanceId], references: [id])
+
+  @@index([token])
+  @@index([instanceId])
+  @@map("terminal_sessions")
+}
