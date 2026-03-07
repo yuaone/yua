@@ -1,0 +1,23 @@
+# Python venv (7.4GB torch)
+**/.venv
+**/venv
+
+# All node_modules (pnpm install handles this on EAS)
+**/node_modules
+
+# Build artifacts
+**/.next
+**/dist
+**/build
+**/.expo
+
+# Large binary / unnecessary for mobile
+yua-backend/eng.traineddata
+yua-backend/legacy-root
+yua-quant
+yua-max-service
+
+# Misc
+screen
+*.log
+.git-backup

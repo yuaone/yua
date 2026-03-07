@@ -26,6 +26,7 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="yuamobile"/>
+        <data android:scheme="exp+yua-mobile"/>
       </intent-filter>
     </activity>
   </application>

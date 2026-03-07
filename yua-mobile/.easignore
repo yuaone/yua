@@ -1,10 +1,23 @@
-# Exclude other packages' node_modules (workspace root handles deps)
-yua-web/node_modules
-yua-backend/node_modules
-yua-console/node_modules
-yua-max-service
+# Python venv (7.4GB torch)
+yua-backend/.venv
 
-# Exclude non-essential dirs
+# Other packages' node_modules
+yua-backend/node_modules
+yua-web/node_modules
+yua-web/.next
+yua-console/node_modules
+yua-quant/node_modules
+
+# Unnecessary packages for mobile build
+yua-quant
+yua-max-service
+yua-console
+
+# Build artifacts
 screen
 *.md
+!yua-shared/README.md
 !README.md
+
+# Logs
+*.log
