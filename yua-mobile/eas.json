@@ -4,14 +4,24 @@
     "appVersionSource": "local"
   },
   "build": {
+    "base": {
+      "node": "20.19.4",
+      "env": {
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+      }
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal"
     },
     "preview": {
+      "extends": "base",
       "distribution": "internal"
     },
-    "production": {}
+    "production": {
+      "extends": "base"
+    }
   },
   "submit": {
     "production": {}
