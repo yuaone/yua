@@ -54,8 +54,6 @@ ecosystem.config.*
 yua-backend/prisma/*.db
 
 # Generated
-yua-mobile/ios
-yua-mobile/android
 yua-mobile/expo-env.d.ts
 yua-mobile/app-example
 

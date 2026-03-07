@@ -38,9 +38,9 @@ yarn-error.*
 
 app-example
 
-# generated native folders
-/ios
-/android
+# generated native folders (kept in git for EAS Build)
+# /ios
+# /android
 
 # env
 .env

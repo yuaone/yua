@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "526086000910",
+    "project_id": "yua-ai-console",
+    "storage_bucket": "yua-ai-console.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:526086000910:android:b5ed85bbc4b62b4a1d075f",
+        "android_client_info": {
+          "package_name": "com.yuaone.yua"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "526086000910-dollq64ja1m7jt3jo5g5i8ocvom796fn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.yuaone.yua",
+            "certificate_hash": "e4ef097f9d904a6dfd1cb94c58da32bf5058c443"
+          }
+        },
+        {
+          "client_id": "526086000910-41pdrokskatin1c53ltisqp3grcr4d7h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDO6EPCelJMMVD6rGsn7UMnkFHn94IGW44"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "526086000910-41pdrokskatin1c53ltisqp3grcr4d7h.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "526086000910-fab8lu2u4nv3236js4hlqvog8q9fukim.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.yuaone.yua"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
