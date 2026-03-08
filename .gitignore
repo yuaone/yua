@@ -25,6 +25,7 @@ web-build/
 
 # Next.js
 .next/
+.next-old/
 out/
 
 # Build
