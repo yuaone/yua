@@ -2188,7 +2188,13 @@ Apply changes? [Y/n/diff]
 +------------------------------------------------------------------+
 ```
 
-### 10.3 Diff Viewer
+### 10.3 Diff Viewer (실시간 코드 변경 시각화)
+
+에이전트가 코드를 수정할 때 **git diff 스타일**로 실시간 표시:
+- 🟢 초록색 배경: 추가된 줄 (`+`)
+- 🔴 빨간색 배경: 삭제된 줄 (`-`)
+- ⬜ 회색: 변경 없는 컨텍스트 줄
+- 인라인 하이라이트: 줄 내에서 변경된 문자/단어만 강조
 
 ```
 +------------------------------------------------------------------+
@@ -2196,20 +2202,184 @@ Apply changes? [Y/n/diff]
 +------------------------------------------------------------------+
 |  43 |   async function getUser(req, res) {                       |
 |  44 |     const { id } = req.params;                             |
-|  45 | - const user = await db.users.findById(id);                |
-|  45 | + try {                                                    |
-|  46 | +   const user = await db.users.findById(id);              |
-|  47 | +   if (!user) {                                           |
-|  48 | +     return res.status(404).json({ error: "not_found" }); |
-|  49 | +   }                                                      |
-|  50 | +   return res.json({ ok: true, user });                   |
-|  51 | + } catch (err) {                                          |
-|  52 | +   console.error("getUser error:", err);                   |
-|  53 | +   return res.status(500).json({ error: "internal" });     |
-|  54 | + }                                                        |
+|  45 | ██ const user = await db.users.findById(id);    ← 빨간 배경 |
+|  45 | ██ try {                                        ← 초록 배경 |
+|  46 | ██   const user = await db.users.findById(id);  ← 초록 배경 |
+|  47 | ██   if (!user) {                               ← 초록 배경 |
+|  48 | ██     return res.status(404).json({...});       ← 초록 배경 |
+|  49 | ██   }                                          ← 초록 배경 |
+|  50 | ██   return res.json({ ok: true, user });        ← 초록 배경 |
+|  51 | ██ } catch (err) {                               ← 초록 배경 |
+|  52 | ██   console.error("getUser error:", err);        ← 초록 배경 |
+|  53 | ██   return res.status(500).json({...});          ← 초록 배경 |
+|  54 | ██ }                                             ← 초록 배경 |
 |  55 |   }                                                        |
 +------------------------------------------------------------------+
-| [Accept] [Reject] [Edit Manually]                                |
+| [✓ Accept] [✗ Reject] [↺ Rollback] [✎ Edit Manually]            |
++------------------------------------------------------------------+
+```
+
+#### 10.3.1 Diff 렌더링 구현
+
+```typescript
+// yua-web/src/components/agent/DiffViewer.tsx
+
+interface DiffViewerProps {
+  filePath: string;
+  diff: UnifiedDiff;
+  mode: "unified" | "split";              // 단일뷰 vs 좌우 분할
+
+  // 인터랙션
+  onAccept: (filePath: string) => void;
+  onReject: (filePath: string) => void;
+  onRollback: (filePath: string, toIteration?: number) => void;
+  onEditManually: (filePath: string) => void;
+
+  // Hunk 단위 승인/거부
+  onAcceptHunk: (hunkIndex: number) => void;
+  onRejectHunk: (hunkIndex: number) => void;
+}
+
+interface UnifiedDiff {
+  filePath: string;
+  language: string;                        // syntax highlighting용
+  hunks: DiffHunk[];
+  stats: { additions: number; deletions: number };
+}
+
+interface DiffHunk {
+  index: number;
+  startLineOld: number;
+  startLineNew: number;
+  lines: DiffLine[];
+}
+
+interface DiffLine {
+  type: "add" | "delete" | "context";      // +, -, 변경없음
+  content: string;
+  lineNumberOld?: number;
+  lineNumberNew?: number;
+
+  // 인라인 하이라이트 (줄 내 변경 부분만 강조)
+  inlineChanges?: { start: number; end: number }[];
+}
+
+// CSS 토큰 (디자인 시스템)
+const DIFF_TOKENS = {
+  // 라이트 모드
+  light: {
+    addBg: '#e6ffec',                      // 초록 배경
+    addBorder: '#abf2bc',
+    addText: '#24292f',
+    addInline: '#acf2bd',                  // 인라인 강조 (더 진한 초록)
+
+    deleteBg: '#ffebe9',                   // 빨간 배경
+    deleteBorder: '#ff8182',
+    deleteText: '#24292f',
+    deleteInline: '#ff8182',               // 인라인 강조 (더 진한 빨강)
+
+    contextBg: '#ffffff',
+    lineNumber: '#636c76',
+    lineNumberBg: '#f6f8fa',
+
+    hunkHeader: '#ddf4ff',                 // @@ 라인 배경
+    hunkHeaderText: '#0550ae',
+  },
+
+  // 다크 모드
+  dark: {
+    addBg: '#0d1117',
+    addBorder: '#238636',
+    addText: '#e6edf3',
+    addInline: 'rgba(46, 160, 67, 0.4)',
+
+    deleteBg: '#0d1117',
+    deleteBorder: '#da3633',
+    deleteText: '#e6edf3',
+    deleteInline: 'rgba(248, 81, 73, 0.4)',
+
+    contextBg: '#0d1117',
+    lineNumber: '#8b949e',
+    lineNumberBg: '#161b22',
+
+    hunkHeader: '#121d2f',
+    hunkHeaderText: '#58a6ff',
+  },
+} as const;
+```
+
+#### 10.3.2 실시간 Diff 스트리밍
+
+```typescript
+// 에이전트가 file_edit 실행할 때마다 SSE로 diff 전송
+
+type DiffStreamEvent =
+  | { kind: "diff:start"; filePath: string; totalHunks: number }
+  | { kind: "diff:hunk"; filePath: string; hunk: DiffHunk }       // hunk 단위 스트리밍
+  | { kind: "diff:complete"; filePath: string; stats: DiffStats }
+  | { kind: "diff:rollback"; filePath: string; toIteration: number };
+
+// 프론트에서: hunk가 올 때마다 즉시 렌더링 → 에이전트 작업 실시간 관찰
+```
+
+#### 10.3.3 Diff 롤백 시스템
+
+```typescript
+// yua-backend/src/agent/diff/diff-rollback.ts
+
+interface DiffRollbackManager {
+  // 변경 이력 추적 (iteration별)
+  history: Map<string, FileChangeHistory>;
+
+  // 롤백 명령
+  rollbackFile(filePath: string, toIteration?: number): Promise<void>;
+  rollbackAll(toIteration?: number): Promise<void>;
+  rollbackHunk(filePath: string, hunkIndex: number): Promise<void>;
+
+  // 선택적 적용
+  applySelected(accepted: string[], rejected: string[]): Promise<void>;
+}
+
+interface FileChangeHistory {
+  filePath: string;
+  originalContent: string;                // 에이전트 시작 전 원본
+  snapshots: {                            // iteration별 스냅샷
+    iteration: number;
+    content: string;
+    diff: UnifiedDiff;
+    timestamp: number;
+  }[];
+}
+
+// 롤백 흐름:
+// 1. 에이전트 시작 시 → 모든 대상 파일의 원본 저장
+// 2. file_edit/file_write 실행 시 → snapshot 추가
+// 3. 유저가 "Rollback" 클릭 시:
+//    a. 전체 롤백: 원본으로 복원
+//    b. 특정 iteration까지: 해당 snapshot으로 복원
+//    c. 특정 hunk만: 해당 변경만 되돌리기 (3-way merge)
+// 4. 롤백 후 에이전트 계속 실행 가능 (최신 파일 상태로)
+
+// CLI: yuan rollback                     → 전체 롤백
+// CLI: yuan rollback --file src/api.ts   → 특정 파일 롤백
+// CLI: yuan rollback --iteration 3       → iteration 3까지만 유지
+// Web: 파일별 [↺] 버튼 또는 전체 [Rollback All] 버튼
+```
+
+#### 10.3.4 파일 변경 요약 패널
+
+```
++------------------------------------------------------------------+
+| Changed Files (5)                              [Accept All] [↺]  |
++------------------------------------------------------------------+
+| ✓ src/api/users.ts          +12 -3   [View] [↺] [✗]             |
+| ✓ src/api/posts.ts          +15 -4   [View] [↺] [✗]             |
+| ✗ src/api/auth.ts           +18 -2   [View] [↺] [✓]  ← rejected|
+| ✓ src/types/user.ts          +3 -0   [View] [↺] [✗]             |
+| ✓ src/utils/errors.ts       +25 -0   [View] [↺] [✗]  ← new file|
++------------------------------------------------------------------+
+| Summary: 73 additions, 9 deletions across 5 files                |
+| [Apply Selected (4)] [Discard Rejected (1)] [Create PR]          |
 +------------------------------------------------------------------+
 ```
 
