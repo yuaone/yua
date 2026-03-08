@@ -105,6 +105,7 @@ import supportRouter from "./support-router";
 import platformApiKeysRouter from "./api-keys-router";
 import v1CompletionsRouter from "./v1-completions-router";
 import v1EmbeddingsRouter from "./v1-embeddings-router";
+import yuanAgentRouter from "./yuan-agent-router";
 
 /* ================================================== */
 const router = Router();
@@ -219,6 +220,9 @@ router.use("/doc", aiEngineLimiter, docRouter);
 router.use("/security", aiEngineLimiter, securityRouter);
 router.use("/identity", aiEngineLimiter, identityRouter);
 router.use("/agent", aiEngineLimiter, agentRouter);
+
+/* YUAN CODING AGENT (Firebase + Workspace) */
+router.use("/yuan-agent", requireFirebaseAuth, withWorkspace, yuanAgentRouter);
 router.use("/task", aiEngineLimiter, taskRouter);
 router.use("/video", aiEngineLimiter, videoRouter);
 router.use("/audio", aiEngineLimiter, audioRouter);
