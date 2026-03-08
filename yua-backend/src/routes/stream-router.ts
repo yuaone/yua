@@ -40,14 +40,14 @@ console.log("[SSE][ENTER]", {
     });
 
     res.flushHeaders();
-    res.write(`: stream-start\n\n`);
+    res.write(Buffer.from(`: stream-start\n\n`, "utf-8"));
 
     /* =========================
        KEEP ALIVE
     ========================= */
     const keepAlive = setInterval(() => {
       try {
-        res.write(`: ping ${Date.now()}\n\n`);
+        res.write(Buffer.from(`: ping ${Date.now()}\n\n`, "utf-8"));
       } catch {}
     }, 15000);
 
@@ -87,8 +87,12 @@ console.log("[SSE][ENTER]", {
       for await (const rawEvent of stream as AsyncGenerator<YuaStreamEvent>) {
 
         // 🔒 SSOT: StreamEngine가 확정한 event 그대로 중계
-        res.write(`event: ${rawEvent.event}\n`);
-        res.write(`data: ${JSON.stringify(rawEvent)}\n\n`);
+        // 🔥 UTF-8 FIX: single atomic write to prevent multi-byte character
+        // splits at chunk boundaries (Korean = 3 bytes per char in UTF-8).
+        // Two separate res.write() calls can be flushed independently,
+        // causing the client's ReadableStream to receive partial UTF-8 bytes.
+        const sseFrame = `event: ${rawEvent.event}\ndata: ${JSON.stringify(rawEvent)}\n\n`;
+        res.write(Buffer.from(sseFrame, "utf-8"));
 
         console.log("[SSE][EVENT]", {
           threadId,
@@ -114,12 +118,10 @@ console.log("[SSE][ENTER]", {
       console.error("[SSE][STREAM_ERROR]", err);
 
       try {
-        res.write(`event: error\n`);
-        res.write(
-          `data: ${JSON.stringify({
-            error: err?.message ?? "stream error",
-          })}\n\n`
-        );
+        const errorFrame = `event: error\ndata: ${JSON.stringify({
+          error: err?.message ?? "stream error",
+        })}\n\n`;
+        res.write(Buffer.from(errorFrame, "utf-8"));
       } catch {}
 
       cleanup("exception");

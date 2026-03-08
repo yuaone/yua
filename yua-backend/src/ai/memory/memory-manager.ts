@@ -11,6 +11,7 @@
 
 import { pgPool } from "../../db/postgres";
 import type { MemoryScope } from "./memory-scope-router";
+import { embed } from "../vector/embedder";
 
 /* ===================================================
    Types
@@ -203,7 +204,7 @@ export const MemoryManager = {
         return;
       }
 
-      await client.query(
+      const insertResult = await client.query<{ id: number }>(
         `
         INSERT INTO memory_records (
           workspace_id,
@@ -217,6 +218,7 @@ export const MemoryManager = {
           created_by_user_id
         )
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        RETURNING id
         `,
         [
           workspaceId,
@@ -231,7 +233,26 @@ export const MemoryManager = {
         ]
       );
 
+      const insertedId = insertResult.rows[0]?.id;
+
       await client.query("COMMIT");
+
+      // 🔒 Embedding generation (fire-and-forget, never blocks commit)
+      // 3s timeout guard to prevent queue pile-up on slow API
+      if (insertedId) {
+        const embedWithTimeout = Promise.race([
+          embed(trimmedContent),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+        ]);
+        embedWithTimeout.then((res) => {
+          if (res && res.ok && res.provider !== "empty") {
+            pgPool.query(
+              `UPDATE memory_records SET embedding = $1::vector WHERE id = $2`,
+              [`[${res.vector.join(",")}]`, insertedId],
+            ).catch(() => {});
+          }
+        }).catch(() => {});
+      }
     } catch (e) {
       await client.query("ROLLBACK");
       throw e;
@@ -282,7 +303,7 @@ export const MemoryManager = {
     const result = scope
       ? await pgPool.query<MemoryRecordRow>(
           `
-          SELECT content, confidence, scope, sensitivity, created_at
+          SELECT id, content, confidence, scope, sensitivity, created_at
           FROM memory_records
           WHERE workspace_id = $1
             AND scope = $2
@@ -295,7 +316,7 @@ export const MemoryManager = {
         )
       : await pgPool.query<MemoryRecordRow>(
           `
-          SELECT content, confidence, scope, sensitivity, created_at
+          SELECT id, content, confidence, scope, sensitivity, created_at
           FROM memory_records
           WHERE workspace_id = $1
             AND is_active = true
@@ -305,6 +326,19 @@ export const MemoryManager = {
           `,
           [workspaceId, effectiveMinConfidence, limit]
         );
+
+    // Fire-and-forget: track access
+    if (result.rows.length > 0) {
+      const ids = result.rows.map((r) => r.id).filter(Boolean);
+      if (ids.length > 0) {
+        pgPool
+          .query(
+            `UPDATE memory_records SET access_count = access_count + 1, last_accessed_at = NOW() WHERE id = ANY($1::bigint[])`,
+            [ids]
+          )
+          .catch(() => {});
+      }
+    }
 
     return result.rows.map((r) => ({
       content: r.content,
@@ -344,6 +378,7 @@ export const MemoryManager = {
     const result = await pgPool.query<MemoryRecordRow>(
       `
       SELECT
+        id,
         content,
         confidence,
         scope,
@@ -359,6 +394,19 @@ export const MemoryManager = {
       `,
       [workspaceId, scope, minConfidence, limit]
     );
+
+    // Fire-and-forget: track access
+    if (result.rows.length > 0) {
+      const ids = result.rows.map((r) => r.id).filter(Boolean);
+      if (ids.length > 0) {
+        pgPool
+          .query(
+            `UPDATE memory_records SET access_count = access_count + 1, last_accessed_at = NOW() WHERE id = ANY($1::bigint[])`,
+            [ids]
+          )
+          .catch(() => {});
+      }
+    }
 
     return result.rows.map((r) => ({
       content: r.content,

@@ -13,8 +13,8 @@ type Props = {
 
 function hashToInt(s: string) {
   let h = 0;
-  for (let i = 0; i < s.length; i++) {
-    h = (h * 31 + s.charCodeAt(i)) | 0;
+  for (const ch of s) {
+    h = (h * 31 + (ch.codePointAt(0) ?? 0)) | 0;
   }
   return Math.abs(h);
 }

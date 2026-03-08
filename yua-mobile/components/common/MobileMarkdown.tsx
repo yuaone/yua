@@ -3,7 +3,9 @@ import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import MarkdownDisplay from "react-native-markdown-display";
 
 import MobileCodeBlock from "@/components/common/MobileCodeBlock";
+import MobileMathBlock from "@/components/common/MobileMathBlock";
 import { emojiMap, type ThoughtStage } from "@/components/common/thoughtStage";
+import { useTheme } from "@/hooks/useTheme";
 import type { SourceChip } from "yua-shared/stream/activity";
 
 type MobileMarkdownSource = SourceChip;
@@ -17,7 +19,8 @@ type StreamBlock =
   | (StreamBlockBase & { kind: "md"; text: string })
   | (StreamBlockBase & { kind: "code"; lang?: string; text: string; closed?: boolean })
   | (StreamBlockBase & { kind: "table"; lines: string[]; confirmed: boolean })
-  | (StreamBlockBase & { kind: "branch"; badge: string; title: string; level: "major" | "section" });
+  | (StreamBlockBase & { kind: "branch"; badge: string; title: string; level: "major" | "section" })
+  | (StreamBlockBase & { kind: "math"; text: string; display: boolean; closed?: boolean });
 
 type MobileMarkdownProps = {
   content: unknown;
@@ -121,7 +124,7 @@ function normalizeHumanMath(input: string): string {
   const SAFE_LATEX = ["frac", "sqrt", "left", "right", "cdot", "times", "le", "ge", "neq", "Rightarrow"];
   working = working.replace(/\bW([A-Za-z]+)\b/g, (_m, name) => (SAFE_LATEX.includes(name) ? `\\${name}` : `W${name}`));
   working = working.replace(/([0-9a-zA-Z])W\b/g, "$1");
-  working = working.replace(new RegExp(`${token}(\d+)${token}`, "g"), (_m, idx) => inlineCodes[Number(idx)] ?? _m);
+  working = working.replace(new RegExp(`${token}(\\d+)${token}`, "g"), (_m, idx) => inlineCodes[Number(idx)] ?? _m);
   return restoreFencedBlocks(working, blocks);
 }
 
@@ -333,7 +336,7 @@ function createStreamParser(): StreamParserState {
 function syncPending(state: StreamParserState) {
   const pending = state.pendingLine ?? "";
   for (const block of state.blocks) {
-    if (block.kind === "md" || block.kind === "code" || block.kind === "table") {
+    if (block.kind === "md" || block.kind === "code" || block.kind === "table" || block.kind === "math") {
       delete block.pending;
     }
   }
@@ -344,7 +347,7 @@ function syncPending(state: StreamParserState) {
 
   const last = state.blocks[state.blocks.length - 1];
   if (!last) return;
-  if (last.kind === "md" || last.kind === "code" || last.kind === "table") {
+  if (last.kind === "md" || last.kind === "code" || last.kind === "table" || last.kind === "math") {
     last.pending = pending;
   }
 }
@@ -373,37 +376,152 @@ function pushMetaBranch(line: string) {
   return { badge, title: match[3], level };
 }
 
+/** Split a line into alternating text / inline-math segments.
+ *  Rules:
+ *    - Only matches single `$` (not `$$`)
+ *    - Skips escaped `\$`
+ *    - Skips `$` inside backtick inline code spans
+ *    - Requires a matching closing `$` (lone `$` stays literal)
+ */
+function splitInlineMath(line: string): { type: "text" | "math"; value: string }[] {
+  // Quick bail: no dollar sign at all
+  if (!line.includes("$")) return [{ type: "text", value: line }];
+
+  const segments: { type: "text" | "math"; value: string }[] = [];
+  let i = 0;
+  let textBuf = "";
+
+  while (i < line.length) {
+    // Skip backtick inline code spans entirely
+    if (line[i] === "`") {
+      const codeStart = i;
+      i += 1;
+      while (i < line.length && line[i] !== "`") i += 1;
+      if (i < line.length) i += 1; // consume closing backtick
+      textBuf += line.slice(codeStart, i);
+      continue;
+    }
+
+    // Skip escaped dollar
+    if (line[i] === "\\" && i + 1 < line.length && line[i + 1] === "$") {
+      textBuf += "\\$";
+      i += 2;
+      continue;
+    }
+
+    // Check for dollar sign
+    if (line[i] === "$") {
+      // Skip if this is `$$` (display math)
+      if (i + 1 < line.length && line[i + 1] === "$") {
+        textBuf += "$$";
+        i += 2;
+        // Consume until closing `$$` or end — leave as literal text
+        while (i < line.length) {
+          if (line[i] === "$" && i + 1 < line.length && line[i + 1] === "$") {
+            textBuf += "$$";
+            i += 2;
+            break;
+          }
+          textBuf += line[i];
+          i += 1;
+        }
+        continue;
+      }
+
+      // Try to find a matching closing `$`
+      const openPos = i;
+      i += 1; // move past opening $
+      let mathContent = "";
+      let found = false;
+      while (i < line.length) {
+        // Escaped dollar inside math — keep literal
+        if (line[i] === "\\" && i + 1 < line.length && line[i + 1] === "$") {
+          mathContent += "\\$";
+          i += 2;
+          continue;
+        }
+        // Closing `$` (but not `$$`)
+        if (line[i] === "$" && (i + 1 >= line.length || line[i + 1] !== "$")) {
+          found = true;
+          i += 1; // consume closing $
+          break;
+        }
+        // `$$` inside — not our inline math, bail
+        if (line[i] === "$" && i + 1 < line.length && line[i + 1] === "$") {
+          break;
+        }
+        mathContent += line[i];
+        i += 1;
+      }
+
+      if (found && mathContent.trim().length > 0) {
+        // Flush text buffer
+        if (textBuf) {
+          segments.push({ type: "text", value: textBuf });
+          textBuf = "";
+        }
+        segments.push({ type: "math", value: mathContent });
+      } else {
+        // No match — treat opening $ as literal
+        textBuf += line.slice(openPos, i);
+      }
+      continue;
+    }
+
+    textBuf += line[i];
+    i += 1;
+  }
+
+  if (textBuf) {
+    segments.push({ type: "text", value: textBuf });
+  }
+
+  return segments.length > 0 ? segments : [{ type: "text", value: line }];
+}
+
 function processLine(state: StreamParserState, line: string) {
   const trimmed = line.trim();
 
-  if (trimmed === "$" || trimmed === "$$") {
-    state.mathMode = !state.mathMode;
-    let last = state.blocks[state.blocks.length - 1];
-    if (!last || last.kind !== "md") {
-      last = {
+  if (trimmed === "$$") {
+    if (!state.mathMode) {
+      // Entering math mode — create a new math block
+      state.mathMode = true;
+      appendBlock(state, {
         id: `b${state.nextId++}`,
-        kind: "md",
+        kind: "math",
         text: "",
-      };
-      appendBlock(state, last);
+        display: true,
+        closed: false,
+      });
+      return;
     }
-    last.text += `${trimmed}\n`;
+    // Exiting math mode — close the current math block
+    state.mathMode = false;
+    const last = state.blocks[state.blocks.length - 1];
+    if (last && last.kind === "math") {
+      last.closed = true;
+    }
+    return;
+  }
+
+  // Single-line display math: $$ E = mc^2 $$
+  const singleLineMath = trimmed.match(/^\$\$\s*(.+?)\s*\$\$$/);
+  if (singleLineMath) {
+    appendBlock(state, {
+      id: `b${state.nextId++}`,
+      kind: "math",
+      text: singleLineMath[1],
+      display: true,
+      closed: true,
+    });
     return;
   }
 
   if (state.mathMode) {
     const last = state.blocks[state.blocks.length - 1];
-    if (!last || last.kind !== "md") {
-      const b: StreamBlock = {
-        id: `b${state.nextId++}`,
-        kind: "md",
-        text: "",
-      };
-      appendBlock(state, b);
-      b.text += line + "\n";
-      return;
+    if (last && last.kind === "math") {
+      last.text += (last.text ? "\n" : "") + line;
     }
-    last.text += line + "\n";
     return;
   }
 
@@ -411,8 +529,6 @@ function processLine(state: StreamParserState, line: string) {
   if (fenceMatch) {
     const ticks = fenceMatch[2].length;
     const lang = (fenceMatch[3] || "").toLowerCase();
-
-    if (state.mode !== "code" && !lang) return;
 
     if (state.mode === "normal") {
       state.mode = "code";
@@ -620,27 +736,183 @@ function processLine(state: StreamParserState, line: string) {
     }
   }
 
-  let last = state.blocks[state.blocks.length - 1];
-  if (!last || last.kind !== "md") {
-    last = { id: `b${state.nextId++}`, kind: "md", text: "" };
-    appendBlock(state, last);
+  // Split line into text / inline-math segments
+  const segments = splitInlineMath(line);
+  const hasInlineMath = segments.some((s) => s.type === "math");
+
+  if (!hasInlineMath) {
+    // Fast path — no inline math, append whole line to md block
+    let last = state.blocks[state.blocks.length - 1];
+    if (!last || last.kind !== "md") {
+      last = { id: `b${state.nextId++}`, kind: "md", text: "" };
+      appendBlock(state, last);
+    }
+    last.text += line + "\n";
+    return;
   }
-  last.text += line + "\n";
+
+  // Line contains inline math — emit alternating md / math blocks
+  for (const seg of segments) {
+    if (seg.type === "text") {
+      let last = state.blocks[state.blocks.length - 1];
+      if (!last || last.kind !== "md") {
+        last = { id: `b${state.nextId++}`, kind: "md", text: "" };
+        appendBlock(state, last);
+      }
+      last.text += seg.value;
+    } else {
+      // Inline math block
+      appendBlock(state, {
+        id: `b${state.nextId++}`,
+        kind: "math",
+        text: seg.value,
+        display: false,
+        closed: true,
+      });
+    }
+  }
+
+  // After processing all segments, append newline to the trailing md block
+  // (or create one) to preserve line-break behavior
+  let trailingMd = state.blocks[state.blocks.length - 1];
+  if (!trailingMd || trailingMd.kind !== "md") {
+    trailingMd = { id: `b${state.nextId++}`, kind: "md", text: "" };
+    appendBlock(state, trailingMd);
+  }
+  trailingMd.text += "\n";
 }
 
-const markdownRules = {
-  link: (node: any, children: any) => {
-    const href = node?.attributes?.href || node?.props?.href;
-    const label = typeof children === "string" ? children : Array.isArray(children) ? children.join("") : "";
-    return (
-      <TouchableOpacity onPress={() => href && Linking.openURL(href)} disabled={!href} key={href ?? label}>
-        <Text style={styles.sourceLink}>{label}</Text>
-      </TouchableOpacity>
-    );
-  },
-};
-
 export default function MobileMarkdown({ content, streaming = false, branchEmoji, stage = null, sources = [] }: MobileMarkdownProps) {
+  const { isDark } = useTheme();
+
+  const mdStyles = useMemo(
+    () => ({
+      body: {
+        color: isDark ? "#e2e8f0" : "#1e293b",
+        fontSize: 14,
+        lineHeight: 20,
+      },
+      heading1: { color: isDark ? "#f8fafc" : "#0f172a" },
+      heading2: { color: isDark ? "#f8fafc" : "#0f172a" },
+      heading3: { color: isDark ? "#f8fafc" : "#0f172a" },
+      heading4: { color: isDark ? "#f8fafc" : "#0f172a" },
+      heading5: { color: isDark ? "#f8fafc" : "#0f172a" },
+      heading6: { color: isDark ? "#f8fafc" : "#0f172a" },
+      link: { color: isDark ? "#60a5fa" : "#2563eb" },
+      code_inline: {
+        backgroundColor: isDark ? "#334155" : "#f1f5f9",
+        color: isDark ? "#e2e8f0" : "#0f172a",
+      },
+      blockquote: {
+        borderLeftColor: isDark ? "#475569" : "#cbd5e1",
+        backgroundColor: isDark ? "#1e293b" : "#f8fafc",
+      },
+      hr: { backgroundColor: isDark ? "#334155" : "#e2e8f0" },
+      bullet_list_icon: { color: isDark ? "#94a3b8" : "#475569" },
+      ordered_list_icon: { color: isDark ? "#94a3b8" : "#475569" },
+      table: {
+        borderColor: isDark ? "#334155" : "#e2e8f0",
+      },
+      thead: {
+        backgroundColor: isDark ? "#334155" : "#f1f5f9",
+      },
+      th: {
+        borderColor: isDark ? "#334155" : "#e2e8f0",
+        color: isDark ? "#f8fafc" : "#0f172a",
+      },
+      td: {
+        borderColor: isDark ? "#334155" : "#e2e8f0",
+        color: isDark ? "#e2e8f0" : "#1e293b",
+      },
+      tr: {
+        backgroundColor: isDark ? "#1e293b" : "#ffffff",
+        borderColor: isDark ? "#334155" : "#e2e8f0",
+      },
+    }),
+    [isDark],
+  );
+
+  const dynamicStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        blockWrap: { marginBottom: 4 },
+        tableWrap: {
+          borderWidth: 1,
+          borderColor: isDark ? "#334155" : "#e2e8f0",
+          borderRadius: 8,
+          padding: 6,
+          backgroundColor: isDark ? "#1e293b" : "#ffffff",
+        },
+        tableRow: {
+          fontFamily: "monospace",
+          fontSize: 13,
+          lineHeight: 18,
+          color: isDark ? "#e2e8f0" : "#1e293b",
+        },
+        branchWrap: {
+          borderWidth: 1,
+          borderColor: isDark ? "#475569" : "#cbd5e1",
+          borderRadius: 12,
+          padding: 10,
+          backgroundColor: isDark ? "#1e293b" : "#eef2ff",
+          marginVertical: 6,
+        },
+        branchBadge: {
+          fontWeight: "600",
+          color: isDark ? "#93c5fd" : "#1d4ed8",
+        },
+        branchTitle: {
+          marginTop: 4,
+          color: isDark ? "#e2e8f0" : "#0f172a",
+          fontSize: 14,
+        },
+        branchEmoji: { fontSize: 18, marginBottom: EMOJI_GAP },
+        sourcesWrap: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 6,
+          marginTop: 6,
+        },
+        sourceChip: {
+          borderWidth: 1,
+          borderColor: isDark ? "#475569" : "#cbd5e1",
+          borderRadius: 999,
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          backgroundColor: isDark ? "#334155" : "#f1f5f9",
+          marginBottom: 4,
+        },
+        sourceLabel: {
+          fontSize: 12,
+          color: isDark ? "#93c5fd" : "#1d4ed8",
+        },
+        sourceHost: {
+          fontSize: 11,
+          color: isDark ? "#94a3b8" : "#475569",
+          marginTop: 2,
+        },
+        sourceLink: {
+          color: isDark ? "#60a5fa" : "#2563eb",
+          textDecorationLine: "underline" as const,
+        },
+      }),
+    [isDark],
+  );
+
+  const markdownRules = useMemo(
+    () => ({
+      link: (node: any, children: any) => {
+        const href = node?.attributes?.href || node?.props?.href;
+        const label = typeof children === "string" ? children : Array.isArray(children) ? children.join("") : "";
+        return (
+          <TouchableOpacity onPress={() => href && Linking.openURL(href)} disabled={!href} key={href ?? label}>
+            <Text style={dynamicStyles.sourceLink}>{label}</Text>
+          </TouchableOpacity>
+        );
+      },
+    }),
+    [dynamicStyles],
+  );
   const stageEmoji = useMemo(() => (stage ? emojiMap[stage] : undefined), [stage]);
   const safeSource = useMemo(() => {
     if (typeof content === "string") return content;
@@ -683,9 +955,19 @@ export default function MobileMarkdown({ content, streaming = false, branchEmoji
         streamState.openFenceTicks = null;
         streamState.pendingCodeLang = null;
       }
-      const last = streamState.blocks[streamState.blocks.length - 1];
-      if (last && last.kind === "md") {
-        last.text += pending;
+      // Close any unclosed math block when streaming ends
+      if (streamState.mathMode) {
+        streamState.mathMode = false;
+        const lastMath = streamState.blocks[streamState.blocks.length - 1];
+        if (lastMath && lastMath.kind === "math") {
+          lastMath.text += (lastMath.text ? "\n" : "") + pending;
+          lastMath.closed = true;
+        }
+      } else {
+        const last = streamState.blocks[streamState.blocks.length - 1];
+        if (last && last.kind === "md") {
+          last.text += pending;
+        }
       }
     }
 
@@ -698,8 +980,8 @@ export default function MobileMarkdown({ content, streaming = false, branchEmoji
       if (!nodeContent) return <View key={block.id} />;
 
       return (
-        <View key={block.id} style={styles.blockWrap}>
-          <MarkdownDisplay style={markdownStyles} rules={markdownRules}>
+        <View key={block.id} style={dynamicStyles.blockWrap}>
+          <MarkdownDisplay style={mdStyles} rules={markdownRules}>
             {nodeContent}
           </MarkdownDisplay>
         </View>
@@ -719,9 +1001,9 @@ export default function MobileMarkdown({ content, streaming = false, branchEmoji
 
     if (block.kind === "table") {
       return (
-        <View key={block.id} style={styles.tableWrap}>
+        <View key={block.id} style={dynamicStyles.tableWrap}>
           {block.lines.map((line, idx) => (
-            <Text key={`${block.id}-row-${idx}`} style={styles.tableRow}>
+            <Text key={`${block.id}-row-${idx}`} style={dynamicStyles.tableRow}>
               {line}
             </Text>
           ))}
@@ -729,11 +1011,26 @@ export default function MobileMarkdown({ content, streaming = false, branchEmoji
       );
     }
 
+    if (block.kind === "math") {
+      const mathContent = block.pending && streaming
+        ? `${block.text}${block.text ? "\n" : ""}${block.pending}`
+        : block.text;
+      if (!mathContent.trim()) return <View key={block.id} />;
+      return (
+        <MobileMathBlock
+          key={block.id}
+          tex={mathContent}
+          display={block.display}
+          streaming={!block.closed && streaming}
+        />
+      );
+    }
+
     if (block.kind === "branch") {
       return (
-        <View key={block.id} style={styles.branchWrap}>
-          <Text style={styles.branchBadge}>{block.badge}</Text>
-          <Text style={styles.branchTitle}>{block.title}</Text>
+        <View key={block.id} style={dynamicStyles.branchWrap}>
+          <Text style={dynamicStyles.branchBadge}>{block.badge}</Text>
+          <Text style={dynamicStyles.branchTitle}>{block.title}</Text>
         </View>
       );
     }
@@ -744,16 +1041,16 @@ export default function MobileMarkdown({ content, streaming = false, branchEmoji
   const renderSources = () => {
     if (!sources.length) return null;
     return (
-      <View style={styles.sourcesWrap}>
+      <View style={dynamicStyles.sourcesWrap}>
         {sources.map((entry) => (
           <TouchableOpacity
             key={entry.id}
-            style={styles.sourceChip}
+            style={dynamicStyles.sourceChip}
             onPress={() => entry.url && Linking.openURL(entry.url)}
             disabled={!entry.url}
           >
-            <Text style={styles.sourceLabel}>{entry.label}</Text>
-            {entry.host ? <Text style={styles.sourceHost}>{entry.host}</Text> : null}
+            <Text style={dynamicStyles.sourceLabel}>{entry.label}</Text>
+            {entry.host ? <Text style={dynamicStyles.sourceHost}>{entry.host}</Text> : null}
           </TouchableOpacity>
         ))}
       </View>
@@ -764,87 +1061,10 @@ export default function MobileMarkdown({ content, streaming = false, branchEmoji
 
   return (
     <View>
-      {displayEmoji ? <Text style={styles.branchEmoji}>{displayEmoji}</Text> : null}
+      {displayEmoji ? <Text style={dynamicStyles.branchEmoji}>{displayEmoji}</Text> : null}
       {blocks.map(renderBlock)}
       {renderSources()}
     </View>
   );
 }
 
-const markdownStyles = {
-  body: {
-    color: "#0f172a",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  link: {
-    color: "#2563eb",
-  },
-} as const;
-
-const styles = StyleSheet.create({
-  blockWrap: {
-    marginBottom: 4,
-  },
-  tableWrap: {
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 8,
-    padding: 6,
-    backgroundColor: "#ffffff",
-  },
-  tableRow: {
-    fontFamily: "monospace",
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  branchWrap: {
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 12,
-    padding: 10,
-    backgroundColor: "#eef2ff",
-    marginVertical: 6,
-  },
-  branchBadge: {
-    fontWeight: "600",
-    color: "#1d4ed8",
-  },
-  branchTitle: {
-    marginTop: 4,
-    color: "#0f172a",
-    fontSize: 14,
-  },
-  branchEmoji: {
-    fontSize: 18,
-    marginBottom: EMOJI_GAP,
-  },
-  sourcesWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 6,
-  },
-  sourceChip: {
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#f1f5f9",
-    marginBottom: 4,
-  },
-  sourceLabel: {
-    fontSize: 12,
-    color: "#1d4ed8",
-  },
-  sourceHost: {
-    fontSize: 11,
-    color: "#475569",
-    marginTop: 2,
-  },
-  sourceLink: {
-    color: "#2563eb",
-    textDecorationLine: "underline",
-  },
-});

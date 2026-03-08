@@ -13,7 +13,7 @@ export interface DedupRuleResult {
 export const MemoryDedupRule = {
   evaluate(input: DedupRuleInput): DedupRuleResult {
     // 1️⃣ 거의 동일 의미
-    if (input.similarity >= 0.92) {
+    if (input.similarity >= 0.90) {
       return {
         isDuplicate: true,
         reason: "semantic_identical",

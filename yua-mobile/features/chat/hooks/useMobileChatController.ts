@@ -17,22 +17,29 @@ import type { AttachmentMeta } from "yua-shared/chat/attachment-types";
 
 export function useMobileChatController(threadId: number | null) {
   const { state, isStreaming, sendPrompt, stopStream, session } = useMobileChatStreamSession();
-  const store = useMobileChatStore();
-  const {
-    ensureThread,
-    getMessages,
-    setMessages,
-    addAssistantMessage,
-    setActiveAssistant,
-    getActiveAssistant,
-    patchAssistantMeta,
-    patchAssistantTraceId,
-  } = store;
+  const ensureThread = useMobileChatStore((s) => s.ensureThread);
+  const getMessages = useMobileChatStore((s) => s.getMessages);
+  const setMessages = useMobileChatStore((s) => s.setMessages);
+  const addAssistantMessage = useMobileChatStore((s) => s.addAssistantMessage);
+  const setActiveAssistant = useMobileChatStore((s) => s.setActiveAssistant);
+  const getActiveAssistant = useMobileChatStore((s) => s.getActiveAssistant);
+  const patchAssistantMeta = useMobileChatStore((s) => s.patchAssistantMeta);
+  const patchAssistantTraceId = useMobileChatStore((s) => s.patchAssistantTraceId);
 
   const lastActivityKeyRef = useRef<string>("");
   const lastPromptRef = useRef<{ content: string; attachments: AttachmentMeta[] } | null>(null);
   const sender = useMobileChatSender(sendPrompt);
   const { profile, enabled, disable } = useMobileThinkingProfile();
+
+  // Stop any active stream when the user switches threads
+  const prevThreadRef = useRef<number | null>(threadId);
+  useEffect(() => {
+    if (prevThreadRef.current !== threadId && isStreaming) {
+      stopStream();
+      resetMobileStreamSession();
+    }
+    prevThreadRef.current = threadId;
+  }, [threadId, isStreaming, stopStream]);
 
   useEffect(() => {
     if (threadId == null) return;

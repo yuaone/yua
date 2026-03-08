@@ -208,14 +208,14 @@ const handleNewChat = async () => {
     };
 
     const mainPanelClass = [
-      "absolute inset-0 flex h-full flex-col transition-transform duration-200 ease-out will-change-transform",
+      "absolute inset-0 flex h-full flex-col transition-transform duration-200 ease-out",
       sidebarMode === "profile"
         ? "-translate-x-full pointer-events-none"
         : "translate-x-0 pointer-events-auto",
     ].join(" ");
 
     const profilePanelClass = [
-      "absolute inset-0 flex h-full flex-col transition-transform duration-200 ease-out will-change-transform",
+      "absolute inset-0 flex h-full flex-col transition-transform duration-200 ease-out",
       sidebarMode === "profile"
         ? "translate-x-0 pointer-events-auto"
         : "translate-x-full pointer-events-none",

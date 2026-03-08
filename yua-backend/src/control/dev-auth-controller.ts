@@ -15,6 +15,9 @@ import { ValidationEngine } from "../ai/engines/validation-engine";
 import { LoggingEngine } from "../ai/engines/logging-engine";
 import { CachingEngine } from "../ai/engines/caching-engine";
 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error("[FATAL] JWT_SECRET env var is required");
+
 export const DevAuthController = Router();
 
 /** SHA-256 비밀번호 해시 */
@@ -83,7 +86,7 @@ DevAuthController.post("/dev/auth/login", async (req, res) => {
 
     const token = jwt.sign(
       { email, role: data.role || "developer" },
-      process.env.JWT_SECRET || "yua-secret",
+      JWT_SECRET,
       { expiresIn: "2h" }
     );
 
@@ -151,7 +154,7 @@ DevAuthController.post("/dev/auth/verify", async (req, res) => {
     try {
       const decoded = jwt.verify(
         token,
-        process.env.JWT_SECRET || "yua-secret"
+        JWT_SECRET
       );
 
       const result = { ok: true, decoded };

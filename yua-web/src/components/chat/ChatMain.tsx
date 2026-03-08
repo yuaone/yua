@@ -610,7 +610,6 @@ useEffect(() => {
      max-w-[var(--chat-max-w)]
      px-4 sm:px-5 md:px-6
      min-w-0 overflow-x-hidden
-     transition-all duration-200
      max-md:[&_.chat-message]:mx-auto
      max-md:[&_.chat-message]:max-w-[92%]
      max-md:[&_.chat-message]:w-full

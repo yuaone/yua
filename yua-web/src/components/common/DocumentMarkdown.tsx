@@ -9,9 +9,10 @@ import type { Components } from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
 import dynamic from "next/dynamic";
 
-const MermaidRenderer = dynamic(() => import("./MermaidRenderer"), {
-  ssr: false,
-});
+const MermaidRenderer = dynamic(
+  () => import("./MermaidRenderer"),
+  { ssr: false }
+) as React.ComponentType<{ code: string; highlightNodes?: string[] }>;
 
 /* =========================
    Normalize helpers

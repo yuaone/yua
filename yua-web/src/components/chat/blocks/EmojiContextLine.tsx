@@ -24,8 +24,8 @@ function clamp01(n: number) {
 // 🔒 UI 결정용 초경량 해시 (절대 시간 섞지 않음)
 function hashToInt(s: string) {
   let h = 0;
-  for (let i = 0; i < s.length; i++) {
-    h = (h * 31 + s.charCodeAt(i)) | 0;
+  for (const ch of s) {
+    h = (h * 31 + (ch.codePointAt(0) ?? 0)) | 0;
   }
   return Math.abs(h);
 }

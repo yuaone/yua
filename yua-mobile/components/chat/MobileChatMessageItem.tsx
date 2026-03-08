@@ -82,6 +82,22 @@ function MobileChatMessageItem({
   );
 }
 
+function shallowMetaEqual(
+  a: MobileChatMessage["meta"],
+  b: MobileChatMessage["meta"],
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return a === b;
+  // Compare top-level meta keys that affect rendering
+  return (
+    a.thinkingProfile === b.thinkingProfile &&
+    a.drawerOpen === b.drawerOpen &&
+    a.suggestion === b.suggestion &&
+    a.sources === b.sources &&
+    a.thinking === b.thinking
+  );
+}
+
 function areEqual(
   prev: MobileChatMessageItemProps,
   next: MobileChatMessageItemProps,
@@ -92,7 +108,7 @@ function areEqual(
     prev.message.streaming === next.message.streaming &&
     prev.message.finalized === next.message.finalized &&
     prev.message._finalizedAt === next.message._finalizedAt &&
-    prev.message.meta === next.message.meta &&
+    shallowMetaEqual(prev.message.meta, next.message.meta) &&
     prev.message.attachments === next.message.attachments &&
     prev.highlighted === next.highlighted
   );

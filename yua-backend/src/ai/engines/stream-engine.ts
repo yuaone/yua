@@ -341,6 +341,68 @@ async function ensureRedis(threadId: number) {
 }
 
 /* ==================================================
+   Zombie Session Reaper
+   - 60s interval scan
+   - Kills sessions with no subscribers older than 5 min
+   - Kills DONE sessions older than 30s
+================================================== */
+
+const REAPER_INTERVAL_MS = 60_000;
+const ZOMBIE_MAX_AGE_MS = 5 * 60_000;
+const DONE_LINGER_MS = 30_000;
+
+setInterval(() => {
+  const now = Date.now();
+  let reaped = 0;
+
+  for (const [threadId, session] of sessions) {
+    const age = now - (session.startedAt ?? now);
+    const subCount = subscribers.get(threadId)?.size ?? 0;
+    const isDone = DONE_STATES.has(session.state);
+
+    const isZombie =
+      (age > ZOMBIE_MAX_AGE_MS && subCount === 0) ||
+      (isDone && age > DONE_LINGER_MS);
+
+    if (!isZombie) continue;
+
+    if (session.reasoningFlushInterval) {
+      clearInterval(session.reasoningFlushInterval);
+    }
+
+    sessions.delete(threadId);
+    buffers.delete(threadId);
+    subscribers.delete(threadId);
+
+    const ch = streamChannel(threadId);
+    const patchCh = titlePatchChannel(threadId);
+    const threadCh = threadTitlePatchChannel(threadId);
+    channelToThread.delete(ch);
+    channelToThread.delete(patchCh);
+    channelToThread.delete(threadCh);
+    redisSub.unsubscribe(ch).catch(() => {});
+    redisSub.unsubscribe(patchCh).catch(() => {});
+    redisSub.unsubscribe(threadCh).catch(() => {});
+
+    reaped++;
+    console.log("[STREAM][REAPER]", {
+      threadId,
+      traceId: session.traceId,
+      state: session.state,
+      ageMs: age,
+      subCount,
+    });
+  }
+
+  if (reaped > 0) {
+    console.log("[STREAM][REAPER_SUMMARY]", {
+      reaped,
+      remaining: sessions.size,
+    });
+  }
+}, REAPER_INTERVAL_MS).unref();
+
+/* ==================================================
    StreamEngine (SSOT FINAL+)
 ================================================== */
 

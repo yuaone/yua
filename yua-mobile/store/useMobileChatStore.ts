@@ -53,7 +53,7 @@ type ChatState = {
     delta: string,
     opts?: { streaming?: boolean }
   ) => void;
-  finalizeAssistant: (id: string) => void;
+  finalizeAssistant: (id: string, finalContent?: string) => void;
   patchAssistantMeta: (
     id: string,
     meta: Partial<MobileChatMessageMeta> | ((prev?: MobileChatMessageMeta) => Partial<MobileChatMessageMeta>)
@@ -70,6 +70,16 @@ type ChatState = {
 
   /* ---- Reset ---- */
   reset: () => void;
+
+  /* ---- Phase 3: in-chat search ---- */
+  searchQuery: string;
+  searchMatches: number[];
+  currentMatchIndex: number;
+  setSearchQuery: (q: string) => void;
+  computeSearchMatches: (threadId: string) => void;
+  nextMatch: () => void;
+  prevMatch: () => void;
+  clearSearch: () => void;
 };
 
 /* ==============================
@@ -98,6 +108,11 @@ export const useMobileChatStore = create<ChatState>((set, get) => ({
 
   streaming: false,
   streamState: "idle",
+
+  /* ---------- Phase 3: in-chat search ---------- */
+  searchQuery: "",
+  searchMatches: [],
+  currentMatchIndex: 0,
 
   /* ---------- Queries ---------- */
   getMessages(threadId) {
@@ -267,7 +282,7 @@ export const useMobileChatStore = create<ChatState>((set, get) => ({
     });
   },
 
-  finalizeAssistant(id) {
+  finalizeAssistant(id, finalContent?: string) {
     set((state) => {
       const tid = findThreadIdForMessage(state.messagesByThread, id);
       if (tid == null) return {};
@@ -280,7 +295,8 @@ export const useMobileChatStore = create<ChatState>((set, get) => ({
           streaming: false,
           finalized: true,
           _finalizedAt: m._finalizedAt ?? Date.now(),
-          content: m.content,
+          // Use finalContent if provided (ensures last delta is preserved)
+          content: finalContent ?? m.content,
           meta: m.meta,
         };
       });
@@ -381,6 +397,51 @@ export const useMobileChatStore = create<ChatState>((set, get) => ({
     });
   },
 
+  /* ---------- Phase 3: in-chat search ---------- */
+  setSearchQuery(q) {
+    set({ searchQuery: q });
+  },
+
+  computeSearchMatches(threadId) {
+    const { messagesByThread, searchQuery } = get();
+    if (!searchQuery.trim()) {
+      set({ searchMatches: [], currentMatchIndex: 0 });
+      return;
+    }
+    const messages = messagesByThread[Number(threadId)] ?? [];
+    const query = searchQuery.toLowerCase();
+    const matches: number[] = [];
+    for (const msg of messages) {
+      if (msg.content && msg.content.toLowerCase().includes(query)) {
+        matches.push(Number(msg.id.replace(/\D/g, "")) || messages.indexOf(msg));
+      }
+    }
+    set({ searchMatches: matches, currentMatchIndex: 0 });
+  },
+
+  nextMatch() {
+    set((state) => {
+      if (state.searchMatches.length === 0) return {};
+      return {
+        currentMatchIndex: (state.currentMatchIndex + 1) % state.searchMatches.length,
+      };
+    });
+  },
+
+  prevMatch() {
+    set((state) => {
+      if (state.searchMatches.length === 0) return {};
+      return {
+        currentMatchIndex:
+          (state.currentMatchIndex - 1 + state.searchMatches.length) % state.searchMatches.length,
+      };
+    });
+  },
+
+  clearSearch() {
+    set({ searchQuery: "", searchMatches: [], currentMatchIndex: 0 });
+  },
+
   /* ---------- Reset ---------- */
   reset() {
     set({
@@ -390,6 +451,9 @@ export const useMobileChatStore = create<ChatState>((set, get) => ({
       hydratedThreads: new Set(),
       streaming: false,
       streamState: "idle",
+      searchQuery: "",
+      searchMatches: [],
+      currentMatchIndex: 0,
     });
   },
 }));

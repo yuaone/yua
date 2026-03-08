@@ -3,7 +3,8 @@ export type MemoryIntent =
   | "CONTEXT"
   | "ARCHITECTURE"
   | "DECISION"
-  | "REMEMBER";
+  | "REMEMBER"
+  | "IMPLICIT";
 
 export function detectMemoryIntent(text: string): MemoryIntent {
   const t = text.toLowerCase();

@@ -1,6 +1,11 @@
+import { useMemo } from "react";
 import { create } from "zustand";
 
 import type { MobileProject, MobileThread, SidebarPanelMode } from "@/types/sidebar";
+
+type AuthFetchFn = (url: string, init?: RequestInit) => Promise<Response>;
+
+const API_BASE = (process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:4000").replace(/\/+$/, "");
 
 /* ==============================
    Helpers
@@ -57,6 +62,15 @@ type SidebarState = {
   setLoadingProjects: (value: boolean) => void;
   setLoadingThreads: (value: boolean) => void;
   resetSidebar: () => void;
+
+  /* ---- Phase 3 extensions ---- */
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  bumpThread: (threadId: number) => void;
+  moveToProject: (threadId: number, projectId: number | null) => void;
+  createProject: (name: string, authFetch: AuthFetchFn) => Promise<void>;
+  pinThread: (threadId: number, authFetch: AuthFetchFn) => Promise<void>;
+  deleteThreadRemote: (threadId: number, authFetch: AuthFetchFn) => Promise<void>;
 };
 
 /* ==============================
@@ -230,6 +244,80 @@ export const useMobileSidebarStore = create<SidebarState>((set, get) => ({
     set({ loadingThreads: value });
   },
 
+  /* ---------- Phase 3 extensions ---------- */
+  searchQuery: "",
+
+  setSearchQuery(q) {
+    set({ searchQuery: q });
+  },
+
+  bumpThread(threadId) {
+    set((state) => {
+      const now = Date.now();
+      const threads = state.threads.map((t) =>
+        t.id === threadId ? { ...t, lastActiveAt: now } : t
+      );
+      return { threads: sortThreads(threads) };
+    });
+  },
+
+  moveToProject(threadId, projectId) {
+    set((state) => ({
+      threads: state.threads.map((t) =>
+        t.id === threadId
+          ? { ...t, projectId: projectId != null ? String(projectId) : null }
+          : t
+      ),
+    }));
+  },
+
+  async createProject(name, authFetch) {
+    const res = await authFetch(`${API_BASE}/api/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error("Failed to create project");
+    const data = await res.json();
+    const project: MobileProject = {
+      id: data.id ?? data.projectId ?? String(Date.now()),
+      name,
+      role: "owner",
+    };
+    set((state) => ({ projects: [...state.projects, project] }));
+  },
+
+  async pinThread(threadId, authFetch) {
+    const thread = get().threads.find((t) => t.id === threadId);
+    if (!thread) return;
+    const nextPinned = !thread.pinned;
+    const res = await authFetch(`${API_BASE}/api/threads/${threadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pinned: nextPinned }),
+    });
+    if (!res.ok) throw new Error("Failed to pin thread");
+    set((state) => {
+      const threads = state.threads.map((t) =>
+        t.id === threadId
+          ? { ...t, pinned: nextPinned, pinnedOrder: nextPinned ? Date.now() : null }
+          : t
+      );
+      return { threads: sortThreads(threads) };
+    });
+  },
+
+  async deleteThreadRemote(threadId, authFetch) {
+    const res = await authFetch(`${API_BASE}/api/threads/${threadId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Failed to delete thread");
+    set((state) => ({
+      threads: state.threads.filter((t) => t.id !== threadId),
+      activeThreadId: state.activeThreadId === threadId ? null : state.activeThreadId,
+    }));
+  },
+
   resetSidebar() {
     set({
       mode: "threads",
@@ -240,6 +328,7 @@ export const useMobileSidebarStore = create<SidebarState>((set, get) => ({
       threads: [],
       loadingProjects: false,
       loadingThreads: false,
+      searchQuery: "",
     });
   },
 }));
@@ -249,8 +338,10 @@ export const useMobileSidebarStore = create<SidebarState>((set, get) => ({
  * Use this instead of filtering manually in components.
  */
 export function useVisibleThreads(): MobileThread[] {
-  return useMobileSidebarStore((state) => {
-    const key = String(state.activeProjectId ?? "null");
-    return state.threads.filter((thread) => String(thread.projectId ?? "null") === key);
-  });
+  const threads = useMobileSidebarStore((s) => s.threads);
+  const activeProjectId = useMobileSidebarStore((s) => s.activeProjectId);
+  return useMemo(() => {
+    const key = String(activeProjectId ?? "null");
+    return threads.filter((t) => String(t.projectId ?? "null") === key);
+  }, [threads, activeProjectId]);
 }

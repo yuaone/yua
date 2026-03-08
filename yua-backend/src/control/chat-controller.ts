@@ -30,6 +30,8 @@ import { ComputeGate } from "../ai/compute/compute-gate";
 import { StreamStage } from "yua-shared/stream/stream-stage";
 import { ActivityKind } from "yua-shared/stream/activity";
 import { pgPool } from "../db/postgres";
+import { updateConversationSummary } from "../ai/context/updateConversationSummary";
+import { fetchRecentChatMessages } from "../db/pg-readonly";
 import { createOpenAIEmbedder } from "../ai/vector/embedder";
 import { getSessionIdByThread, type DbClient } from "../ai/file-intel/vector/db";
 import type { Embedder as FileEmbedder } from "../ai/file-intel/vector/embedder";
@@ -405,6 +407,14 @@ writeRawEvent({
             verdict: decisionCtx.decision.verdict,
           });
 
+          // Clean up stream session to prevent zombie leak
+          if (stream === true) {
+            await StreamEngine.finish(resolvedThreadId, {
+              reason: "error",
+              traceId,
+            });
+          }
+
     return res.status(200).json({
     ok: false,
     traceId,
@@ -697,6 +707,8 @@ const wantsImageAsset =
       mode,
       outmode: meta?.outmode,
       stream,
+      path: decisionCtx.path,
+      forceSearch: decisionCtx.runtimeHints?.forceSearch,
     });
   } catch (e) {
     writeRawEvent({
@@ -801,18 +813,23 @@ ExecutionEngine.execute({
   userId,
   userName,
   prompt,
+  rawUserMessage: cleanMessage,
   mode,
   thinkingProfile: decisionCtx.thinkingProfile,
   sessionId: fileSessionId ?? null,
   outmode: meta?.outmode,
   stream: true,
   attachments,
+  path: decisionCtx.path,
+  forceSearch: decisionCtx.runtimeHints?.forceSearch,
+  memoryIntent: decisionCtx.memoryIntent,
   sectionId:
     executionResult && executionResult.ok
       ? executionResult.sectionId
       : undefined,
   computePolicy,
   computeTier: acquiredTier,
+  planTier,
             }).catch((e) => {
               console.error("[CHAT][STREAM_EXEC_ERROR]", {
                 traceId,
@@ -870,12 +887,16 @@ ExecutionEngine.execute({
           userId,
           userName,
           prompt,
+          rawUserMessage: cleanMessage,
           mode,
           thinkingProfile: decisionCtx.thinkingProfile,
           sessionId: fileSessionId ?? null,
           outmode: meta?.outmode,
           stream: false,
           attachments,
+          path: decisionCtx.path,
+          forceSearch: decisionCtx.runtimeHints?.forceSearch,
+          memoryIntent: decisionCtx.memoryIntent,
           computePolicy,
         });
 
@@ -957,6 +978,39 @@ await MessageEngine.addMessage({
    verdict: decisionCtx.decision.verdict,
    responseAffordance: meta?.responseAffordance,
  });
+
+ // 🔒 SUMMARY: fire-and-forget (non-blocking)
+ fetchRecentChatMessages(resolvedThreadId, 50)
+   .then((rows) => {
+     const msgs = rows
+       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+       .map((r) => `[${r.role}] ${r.content}`);
+     return updateConversationSummary(resolvedThreadId, msgs);
+   })
+   .catch((e) => {
+     console.warn("[CONVERSATION_SUMMARY][ERROR]", { threadId: resolvedThreadId, error: String(e) });
+   });
+
+ // 🔒 MEMORY PIPELINE: non-stream hook
+ try {
+   const { runMemoryPipeline } = await import("../ai/memory/memory-pipeline-runner.js");
+   await runMemoryPipeline({
+     threadId: resolvedThreadId,
+     traceId,
+     userId: String(userId),
+     workspaceId,
+     userMessage: cleanMessage,
+     assistantMessage: text,
+     mode: mode ?? "NORMAL",
+     memoryIntent: decisionCtx.memoryIntent ?? "NONE",
+     reasoning: decisionCtx.reasoning ?? { confidence: 0.5 },
+     executionPlan: meta?.executionPlan,
+     executionResult: executionResult,
+     allowMemory: true,
+   });
+ } catch (e) {
+   console.warn("[MEMORY_PIPELINE][NON_STREAM_ERROR]", { threadId: resolvedThreadId, error: String(e) });
+ }
 
         if (!aiResult || aiResult.type !== "text") {
           console.error("[CHAT][NON_STREAM_INVALID_RESULT]", {

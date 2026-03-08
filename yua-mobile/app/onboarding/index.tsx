@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   FadeIn,
   FadeOut,
+  SlideInRight,
+  SlideOutLeft,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -22,8 +24,50 @@ import Animated, {
 
 import { useMobileAuth } from "@/contexts/MobileAuthContext";
 import { useTheme } from "@/hooks/useTheme";
+import { MobileTokens } from "@/constants/tokens";
 import type { ThemeColors } from "@/constants/theme";
 
+/* ─── Preference chips data ─── */
+const PREFERENCE_OPTIONS = [
+  { id: "dev", emoji: "\uD83D\uDCBB", label: "\uAC1C\uBC1C" },
+  { id: "data", emoji: "\uD83D\uDCCA", label: "\uB370\uC774\uD130" },
+  { id: "writing", emoji: "\uD83D\uDCDD", label: "\uAE00\uC4F0\uAE30" },
+  { id: "design", emoji: "\uD83C\uDFA8", label: "\uB514\uC790\uC778" },
+  { id: "learning", emoji: "\uD83D\uDCDA", label: "\uD559\uC2B5" },
+  { id: "work", emoji: "\uD83D\uDCBC", label: "\uC5C5\uBB34" },
+  { id: "research", emoji: "\uD83D\uDD2C", label: "\uC5F0\uAD6C" },
+  { id: "general", emoji: "\uD83D\uDCA1", label: "\uC77C\uBC18" },
+] as const;
+
+/* ─── Step indicator dots ─── */
+function StepDots({
+  current,
+  total,
+  colors,
+}: {
+  current: number;
+  total: number;
+  colors: ThemeColors;
+}) {
+  return (
+    <View style={styles.dotsRow}>
+      {Array.from({ length: total }, (_, i) => (
+        <View
+          key={i}
+          style={[
+            styles.dot,
+            {
+              backgroundColor:
+                i === current ? colors.buttonBg : colors.wash,
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+/* ─── Animated text input with underline focus ─── */
 function UnderlineInput({
   value,
   onChangeText,
@@ -54,6 +98,7 @@ function UnderlineInput({
         placeholderTextColor={colors.placeholder}
         style={[styles.input, { color: colors.textHeading }]}
         maxLength={maxLength}
+        autoFocus
         onFocus={() => {
           borderProgress.value = withTiming(1, { duration: 200 });
         }}
@@ -65,20 +110,61 @@ function UnderlineInput({
   );
 }
 
-export default function OnboardingScreen() {
-  const { completeOnboarding, signOutUser, profile, ready, state } =
-    useMobileAuth();
+/* ─── Preference chip ─── */
+function PreferenceChip({
+  emoji,
+  label,
+  selected,
+  onPress,
+  colors,
+}: {
+  emoji: string;
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  colors: ThemeColors;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.chip,
+        {
+          borderColor: selected ? colors.buttonBg : colors.line,
+          backgroundColor: selected ? colors.buttonBg : "transparent",
+        },
+      ]}
+    >
+      <Text style={styles.chipEmoji}>{emoji}</Text>
+      <Text
+        style={[
+          styles.chipLabel,
+          { color: selected ? colors.buttonText : colors.textPrimary },
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
+/* ─── Main onboarding screen ─── */
+export default function OnboardingScreen() {
+  const { completeOnboarding, profile, ready, state } =
+    useMobileAuth();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
+  const [step, setStep] = useState(0);
   const [name, setName] = useState(profile?.user?.name ?? "");
+  const [selectedPrefs, setSelectedPrefs] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const canSubmit = useMemo(() => Boolean(name.trim()), [name]);
   const MAX_NAME = 255;
+  const canContinueStep0 = useMemo(() => Boolean(name.trim()), [name]);
 
+  /* ─── Auth guard ─── */
   useEffect(() => {
     if (!ready) return;
     if (state === "guest" || state === "error") {
@@ -90,32 +176,203 @@ export default function OnboardingScreen() {
     }
   }, [ready, state]);
 
-  const finish = async () => {
-    if (!canSubmit) {
-      setError("이름을 입력해 주세요.");
-      return;
-    }
-    if (name.trim().length > MAX_NAME) {
-      setError(`이름은 ${MAX_NAME}자 이내로 입력해 주세요.`);
-      return;
-    }
+  /* ─── Toggle preference ─── */
+  const togglePref = (id: string) => {
+    setSelectedPrefs((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
+  };
 
+  /* ─── Navigate steps ─── */
+  const goNext = () => {
+    if (step === 0) {
+      if (name.trim().length > MAX_NAME) {
+        setError(`\uC774\uB984\uC740 ${MAX_NAME}\uC790 \uC774\uB0B4\uB85C \uC785\uB825\uD574 \uC8FC\uC138\uC694.`);
+        return;
+      }
+      setError(null);
+    }
+    setStep((s) => Math.min(s + 1, 2));
+  };
+
+  const skip = () => {
+    if (step < 2) {
+      setStep((s) => s + 1);
+    }
+  };
+
+  /* ─── Final submit ─── */
+  const finish = async () => {
     setLoading(true);
     setError(null);
     try {
-      await completeOnboarding({ name: name.trim() });
+      await completeOnboarding({ name: name.trim() || undefined });
       router.replace("/(authed)/chat");
     } catch (err) {
       setError(err instanceof Error ? err.message : "ONBOARDING_FAILED");
-    } finally {
       setLoading(false);
     }
   };
 
-  const logout = async () => {
-    await signOutUser();
-    router.replace("/auth");
-  };
+  const displayName = name.trim() || "\uC0AC\uC6A9\uC790";
+
+  /* ─── Step 1: Welcome + Name ─── */
+  const renderStep0 = () => (
+    <Animated.View
+      key="step0"
+      entering={SlideInRight.duration(MobileTokens.timing.normal)}
+      exiting={SlideOutLeft.duration(MobileTokens.timing.normal)}
+      style={styles.stepContainer}
+    >
+      <Text style={[styles.brand, { color: colors.textHeading }]}>YUA</Text>
+
+      <Text style={[styles.heading, { color: colors.textHeading }]}>
+        {"\uBC18\uAC11\uC2B5\uB2C8\uB2E4! \uD83D\uDC4B"}
+      </Text>
+      <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+        YUA{"\uAC00 \uB2F9\uC2E0\uC744 \uBB50\uB77C\uACE0 \uBD80\uB97C\uAE4C\uC694?"}
+      </Text>
+
+      <View style={styles.fieldGroup}>
+        <UnderlineInput
+          value={name}
+          onChangeText={setName}
+          placeholder={"\uC774\uB984 \uB610\uB294 \uB2C9\uB124\uC784"}
+          colors={colors}
+          maxLength={MAX_NAME}
+        />
+      </View>
+
+      {error && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
+        >
+          <Text style={[styles.error, { color: colors.errorColor }]}>
+            {error}
+          </Text>
+        </Animated.View>
+      )}
+
+      <Pressable
+        style={[
+          styles.primaryBtn,
+          { backgroundColor: colors.buttonBg },
+          !canContinueStep0 && styles.btnDisabled,
+        ]}
+        onPress={goNext}
+        disabled={!canContinueStep0}
+      >
+        <Text style={[styles.primaryBtnText, { color: colors.buttonText }]}>
+          {"\uACC4\uC18D\uD558\uAE30"}
+        </Text>
+      </Pressable>
+
+      <Pressable style={styles.skipBtn} onPress={skip}>
+        <Text style={[styles.skipText, { color: colors.textMuted }]}>
+          {"\uAC74\uB108\uB6F0\uAE30"}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+
+  /* ─── Step 2: Preferences ─── */
+  const renderStep1 = () => (
+    <Animated.View
+      key="step1"
+      entering={SlideInRight.duration(MobileTokens.timing.normal)}
+      exiting={SlideOutLeft.duration(MobileTokens.timing.normal)}
+      style={styles.stepContainer}
+    >
+      <Text style={[styles.heading, { color: colors.textHeading }]}>
+        {"\uC5B4\uB5BB\uAC8C \uB3C4\uC640\uB4DC\uB9B4\uAE4C\uC694?"}
+      </Text>
+      <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+        {"\uAD00\uC2EC \uBD84\uC57C\uB97C \uC120\uD0DD\uD574\uC8FC\uC138\uC694"}
+      </Text>
+
+      <View style={styles.chipGrid}>
+        {PREFERENCE_OPTIONS.map((opt) => (
+          <PreferenceChip
+            key={opt.id}
+            emoji={opt.emoji}
+            label={opt.label}
+            selected={selectedPrefs.includes(opt.id)}
+            onPress={() => togglePref(opt.id)}
+            colors={colors}
+          />
+        ))}
+      </View>
+
+      <Pressable
+        style={[styles.primaryBtn, { backgroundColor: colors.buttonBg }]}
+        onPress={goNext}
+      >
+        <Text style={[styles.primaryBtnText, { color: colors.buttonText }]}>
+          {"\uACC4\uC18D\uD558\uAE30"}
+        </Text>
+      </Pressable>
+
+      <Pressable style={styles.skipBtn} onPress={skip}>
+        <Text style={[styles.skipText, { color: colors.textMuted }]}>
+          {"\uAC74\uB108\uB6F0\uAE30"}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+
+  /* ─── Step 3: Complete ─── */
+  const renderStep2 = () => (
+    <Animated.View
+      key="step2"
+      entering={FadeIn.duration(MobileTokens.timing.slow)}
+      style={styles.stepContainer}
+    >
+      <Text style={styles.completeEmoji}>{"\u2728"}</Text>
+
+      <Text style={[styles.heading, { color: colors.textHeading }]}>
+        {"\uC900\uBE44\uAC00 \uC644\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4!"}
+      </Text>
+
+      <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+        {displayName}
+        {"\uB2D8, YUA\uC640 \uD568\uAED8"}
+        {"\n"}
+        {"\uBA4B\uC9C4 \uB300\uD654\uB97C \uC2DC\uC791\uD574\uBCF4\uC138\uC694."}
+      </Text>
+
+      {error && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
+        >
+          <Text style={[styles.error, { color: colors.errorColor }]}>
+            {error}
+          </Text>
+        </Animated.View>
+      )}
+
+      <Pressable
+        style={[
+          styles.primaryBtn,
+          { backgroundColor: colors.buttonBg },
+          loading && styles.btnDisabled,
+        ]}
+        onPress={finish}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color={colors.buttonText} size="small" />
+        ) : (
+          <Text style={[styles.primaryBtnText, { color: colors.buttonText }]}>
+            {"\uB300\uD654 \uC2DC\uC791\uD558\uAE30"}
+          </Text>
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+
+  const steps = [renderStep0, renderStep1, renderStep2];
 
   return (
     <KeyboardAvoidingView
@@ -125,80 +382,24 @@ export default function OnboardingScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 },
+          {
+            paddingTop: insets.top + MobileTokens.space.xxl,
+            paddingBottom: insets.bottom + MobileTokens.space.xl,
+          },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
-          {/* ─── Brand + heading ─── */}
-          <View style={styles.header}>
-            <Text style={[styles.brand, { color: colors.textHeading }]}>YUA</Text>
-            <Text style={[styles.heading, { color: colors.textHeading }]}>
-              YUA가 부를 이름을
-            </Text>
-            <Text style={[styles.heading, { color: colors.textHeading }]}>
-              설정해 주세요
-            </Text>
-          </View>
-
-          <Text style={[styles.body, { color: colors.textSecondary }]}>
-            이후 설정에서 언제든 변경할 수 있습니다.
-          </Text>
-
-          {/* ─── Name input ─── */}
-          <View style={styles.fieldGroup}>
-            <UnderlineInput
-              value={name}
-              onChangeText={setName}
-              placeholder="이름을 입력하세요"
-              colors={colors}
-              maxLength={MAX_NAME}
-            />
-          </View>
-
-          {/* ─── Error ─── */}
-          {error && (
-            <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
-              <Text style={[styles.error, { color: colors.errorColor }]}>{error}</Text>
-            </Animated.View>
-          )}
-
-          {/* ─── Primary button ─── */}
-          <Pressable
-            style={[
-              styles.primaryBtn,
-              { backgroundColor: colors.buttonBg },
-              (!canSubmit || loading) && styles.btnDisabled,
-            ]}
-            onPress={finish}
-            disabled={!canSubmit || loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.buttonText} size="small" />
-            ) : (
-              <Text style={[styles.primaryBtnText, { color: colors.buttonText }]}>
-                다음
-              </Text>
-            )}
-          </Pressable>
-
-          {/* ─── Logout ─── */}
-          <Pressable
-            style={[styles.secondaryBtn, { borderColor: colors.secondaryBtnBorder }]}
-            onPress={logout}
-            disabled={loading}
-          >
-            <Text style={[styles.secondaryBtnText, { color: colors.textHeading }]}>
-              로그아웃
-            </Text>
-          </Pressable>
+          <StepDots current={step} total={3} colors={colors} />
+          {steps[step]()}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
+/* ─── Styles ─── */
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -206,7 +407,7 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     justifyContent: "center",
-    paddingHorizontal: 28,
+    paddingHorizontal: MobileTokens.space.xxl,
   },
   container: {
     width: "100%",
@@ -214,75 +415,130 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
 
-  header: {
-    alignItems: "center",
-    marginBottom: 12,
+  /* Step dots */
+  dotsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: MobileTokens.space.sm,
+    marginBottom: MobileTokens.space.xxxl,
   },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  /* Step container */
+  stepContainer: {
+    alignItems: "center",
+  },
+
+  /* Brand */
   brand: {
-    fontSize: 34,
+    fontSize: MobileTokens.font.xxl,
     fontWeight: "800",
     letterSpacing: 6,
-    marginBottom: 16,
+    marginBottom: MobileTokens.space.xl,
   },
+
+  /* Heading */
   heading: {
-    fontSize: 22,
+    fontSize: MobileTokens.font.xl,
     fontWeight: "700",
     textAlign: "center",
     lineHeight: 30,
+    marginBottom: MobileTokens.space.sm,
   },
 
-  body: {
-    fontSize: 14,
-    lineHeight: 20,
+  /* Subtitle */
+  subtitle: {
+    fontSize: MobileTokens.font.md,
     textAlign: "center",
-    marginBottom: 32,
+    lineHeight: 22,
+    marginBottom: MobileTokens.space.xxl,
   },
 
+  /* Input */
   fieldGroup: {
-    gap: 4,
-    marginBottom: 24,
+    width: "100%",
+    marginBottom: MobileTokens.space.xl,
   },
   inputWrap: {
     borderBottomWidth: 1,
     borderBottomColor: "rgba(0,0,0,0.08)",
   },
   input: {
-    height: 48,
-    fontSize: 15,
+    height: MobileTokens.touch.comfortable,
+    fontSize: MobileTokens.font.md,
     paddingHorizontal: 2,
-  },
-
-  error: {
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 12,
     textAlign: "center",
   },
 
+  /* Error */
+  error: {
+    fontSize: MobileTokens.font.sm,
+    fontWeight: "600",
+    marginBottom: MobileTokens.space.md,
+    textAlign: "center",
+  },
+
+  /* Primary button */
   primaryBtn: {
+    width: "100%",
     height: 52,
-    borderRadius: 26,
+    borderRadius: MobileTokens.radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },
   primaryBtnText: {
-    fontSize: 15,
+    fontSize: MobileTokens.font.md,
     fontWeight: "800",
   },
   btnDisabled: {
     opacity: 0.4,
   },
 
-  secondaryBtn: {
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 12,
+  /* Skip */
+  skipBtn: {
+    marginTop: MobileTokens.space.lg,
+    paddingVertical: MobileTokens.space.sm,
   },
-  secondaryBtnText: {
+  skipText: {
+    fontSize: MobileTokens.font.md,
+    textAlign: "center",
+  },
+
+  /* Preference chips */
+  chipGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: MobileTokens.space.md,
+    width: "100%",
+    marginBottom: MobileTokens.space.xxl,
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 48,
+    paddingHorizontal: MobileTokens.space.lg,
+    borderRadius: MobileTokens.radius.chip,
+    borderWidth: 1,
+    gap: MobileTokens.space.sm,
+    width: "47%",
+    justifyContent: "center",
+  },
+  chipEmoji: {
+    fontSize: MobileTokens.font.body,
+  },
+  chipLabel: {
+    fontSize: MobileTokens.font.md,
     fontWeight: "600",
-    fontSize: 14,
+  },
+
+  /* Complete step */
+  completeEmoji: {
+    fontSize: 48,
+    marginBottom: MobileTokens.space.xl,
   },
 });

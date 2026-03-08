@@ -1,0 +1,2723 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================
+   Emoji font override — force system emoji fonts for emoji codepoints.
+   Pretendard's dynamic-subset claims U+2600-U+27BF (misc symbols) which
+   includes many emoji codepoints. Without this override, Pretendard serves
+   empty/text-style glyphs instead of falling through to color emoji fonts.
+========================= */
+@font-face {
+  font-family: 'Emoji Override';
+  src: local('Apple Color Emoji'),
+       local('Segoe UI Emoji'),
+       local('Segoe UI Symbol'),
+       local('Noto Color Emoji'),
+       local('Android Emoji'),
+       local('EmojiSymbols');
+  /* All emoji & symbol ranges that Pretendard might claim */
+  unicode-range:
+    U+200D,            /* Zero-width joiner (compound emoji) */
+    U+FE0E-FE0F,      /* Variation selectors (text vs emoji presentation) */
+    U+20E3,            /* Combining enclosing keycap */
+    U+2190-21FF,       /* Arrows */
+    U+2300-23FF,       /* Miscellaneous Technical */
+    U+2460-24FF,       /* Enclosed Alphanumerics */
+    U+25A0-25FF,       /* Geometric Shapes */
+    U+2600-27BF,       /* Misc Symbols + Dingbats */
+    U+2900-297F,       /* Supplemental Arrows-B */
+    U+2B05-2B07,       /* Arrows (supplement) */
+    U+2B1B-2B1C,       /* Black/White large square */
+    U+2B50,            /* Star */
+    U+2B55,            /* Circle */
+    U+3030,            /* Wavy dash */
+    U+303D,            /* Part alternation mark */
+    U+3297,            /* Circled ideograph congratulation */
+    U+3299,            /* Circled ideograph secret */
+    U+1F000-1FAFF,     /* All modern emoji blocks */
+    U+E0020-E007F;     /* Tags (flag sequences) */
+}
+
+/* =========================
+   YUA Desktop — Design Tokens (from yua-web SSOT)
+========================= */
+:root {
+  --chat-max-w: 960px;
+  --chat-pad-x: 18px;
+  --flow-tight: 0.34em;
+  --flow: 0.48em;
+  --flow-loose: 1.05em;
+  --ink: #111827;
+  --ink-2: #374151;
+  --line: #e5e7eb;
+  --wash: rgba(249, 250, 251, 0.9);
+  --app-bg: #ffffff;
+  --card-bg: #ffffff;
+  --card-border: #e5e7eb;
+  --confidence-high: #22c55e;
+  --confidence-mid: #eab308;
+  --confidence-low: #ef4444;
+  --panel-bg: #f8fafc;
+  --muted: #64748b;
+
+  /* surfaces (light) */
+  --surface-main: #ffffff;
+  --surface-panel: #ffffff;
+  --surface-sidebar: var(--sb-bg);
+
+  /* text helpers */
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-2);
+  --text-muted: var(--muted);
+
+  /* sidebar tokens */
+  --sb-bg: #f5f6f8;
+  --sb-panel: #ffffff;
+  --sb-panel-strong: #ffffff;
+  --sb-line: #e5e7eb;
+  --sb-ink: #2b2f36;
+  --sb-ink-2: #6b7280;
+  --sb-soft: #e8eaee;
+  --sb-active-bg: #dce2ff;
+  --sb-active-ink: #2563eb;
+}
+
+html.dark {
+  --app-bg: #1a1a1a;
+  --surface-main: #1a1a1a;
+  --surface-panel: #202020;
+  --surface-sidebar: #202020;
+
+  --ink: rgba(255, 255, 255, 0.9);
+  --ink-2: rgba(255, 255, 255, 0.65);
+  --muted: rgba(255, 255, 255, 0.55);
+  --line: rgba(255, 255, 255, 0.1);
+  --wash: rgba(0, 0, 0, 0.35);
+
+  --card-bg: #1b1b1b;
+  --confidence-high: #4ade80;
+  --confidence-mid: #facc15;
+  --confidence-low: #f87171;
+  --card-border: rgba(255, 255, 255, 0.1);
+  --panel-bg: var(--surface-panel);
+
+  /* sidebar tokens (dark) */
+  --sb-bg: var(--surface-sidebar);
+  --sb-panel: var(--surface-sidebar);
+  --sb-panel-strong: var(--surface-sidebar);
+  --sb-line: rgba(255, 255, 255, 0.1);
+  --sb-ink: rgba(255, 255, 255, 0.92);
+  --sb-ink-2: rgba(255, 255, 255, 0.72);
+  --sb-soft: rgba(255, 255, 255, 0.06);
+  --sb-active-bg: rgba(255, 255, 255, 0.12);
+  --sb-active-ink: rgba(255, 255, 255, 0.92);
+
+  /* text helpers */
+  --text-primary: rgba(255, 255, 255, 0.9);
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --text-muted: rgba(255, 255, 255, 0.55);
+}
+
+/* =========================
+   Base reset
+========================= */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+html,
+body {
+  height: 100%;
+  font-size: 16px;
+  line-height: 1.6;
+  font-family: 'Emoji Override', 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', 'Noto Sans KR',
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji',
+    sans-serif;
+  font-feature-settings: "liga" 1, "kern" 1;
+  background: var(--app-bg);
+  color: var(--text-secondary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  letter-spacing: -0.01em;
+}
+
+html.dark body { color: var(--text-secondary); }
+
+#root {
+  height: 100%;
+}
+
+/* =========================
+   Selection color
+========================= */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+/* =========================
+   Desktop-specific: app shell
+========================= */
+.app-shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--wash);
+  color: var(--text-primary);
+}
+
+/* =========================
+   Custom title bar drag region
+========================= */
+.title-bar {
+  -webkit-app-region: drag;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: var(--surface-main);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.title-bar button,
+.title-bar a,
+.title-bar input {
+  -webkit-app-region: no-drag;
+}
+
+/* =========================
+   App region helpers
+========================= */
+.drag-region {
+  -webkit-app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* =========================
+   Scrollbar styling
+========================= */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 100px;
+  transition: background 0.2s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.22);
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+/* Hide scrollbar until hover */
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+.sidebar-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+}
+html.dark .sidebar-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* =========================
+   Scroll container — GPU stability
+========================= */
+.chat-scroll {
+  /* ALL compositor hints removed — will-change + GPU flags cause sub-pixel
+     tile rasterization inconsistencies in Electron. Browser already optimizes
+     overflow-y:auto containers without hints. */
+}
+
+/* =========================
+   Keyframe animations
+========================= */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* YUA-specific keyframes (ported from yua-web) */
+@keyframes yua-slide-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes yua-slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes yua-copy-flash {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes yuaFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes yuaDrawerIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes yuaSkeletonShimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+@keyframes yuaInlineActivity {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes yua-group-fade {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes yuaChipIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes yuaTitleSwap {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes codeSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes yua-skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes voice-dot-wave {
+  0%, 100% { opacity: 0.4; transform: scaleY(1); }
+  50% { opacity: 1; transform: scaleY(var(--wave-scale, 2)); }
+}
+
+/* =========================
+   Animation utility classes
+========================= */
+.animate-yua-slide-up {
+  animation: yua-slide-up 200ms ease-out;
+}
+
+.animate-yua-slide-down {
+  animation: yua-slide-down 0.45s ease-out forwards;
+}
+
+.animate-yua-inline-activity {
+  animation: yuaInlineActivity 300ms cubic-bezier(.22,.61,.36,1);
+}
+
+.animate-yua-bullet {
+  animation: yua-group-fade 0.50s cubic-bezier(.22,.61,.36,1) forwards;
+  opacity: 0;
+}
+
+.animate-yua-drawer-segment {
+  animation: yuaDrawerIn 0.35s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.animate-yua-skeleton-fade {
+  animation: yuaFadeIn 0.2s ease-out;
+}
+
+.animate-yua-fade-in {
+  animation: yuaFadeIn 260ms ease-out forwards;
+}
+
+.yua-title-swap {
+  display: inline-block;
+  animation: yuaTitleSwap 260ms cubic-bezier(.22,.61,.36,1);
+}
+
+.yua-fade-in {
+  animation: yuaFadeIn 240ms ease-out forwards;
+  opacity: 0;
+}
+
+/* =========================
+   Sidebar building blocks
+========================= */
+.sb-surface {
+  background: var(--sb-bg);
+  color: var(--sb-ink);
+}
+
+.sb-card {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.sb-card-strong {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.sb-chip {
+  background: var(--sb-soft);
+  color: var(--sb-ink-2);
+  border-radius: 9999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.sb-btn-ghost {
+  border-radius: 12px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sb-ink-2);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.sb-btn-ghost:hover {
+  background: var(--sb-soft);
+  color: var(--sb-ink);
+}
+
+/* Dark mode sidebar overrides */
+html.dark .sb-surface { background: var(--sb-bg); color: var(--sb-ink); }
+html.dark .sb-surface * { color: var(--sb-ink); }
+html.dark .sb-btn-ghost { color: var(--sb-ink-2); }
+html.dark .sb-btn-ghost:hover { background: var(--sb-soft); color: var(--sb-ink); }
+
+/* =========================
+   No-scrollbar utility
+========================= */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* =========================
+   CodeBlock Layout (from yua-web SSOT)
+========================= */
+.codeblock {
+  position: relative;
+  overflow: visible;
+  margin: 2.2em 0;
+  background: #f7f7f8;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+html.dark .codeblock {
+  background: #1b1b1b;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.chat-markdown p + .codeblock {
+  margin-top: 1.4em;
+}
+.codeblock + .chat-markdown p {
+  margin-top: 1.4em;
+}
+
+/* CodeBlock Header */
+.codeblock-head {
+  /* FIXED: sticky creates a new stacking context per code block in the scroll container,
+     causing compositor overhead. Use static position instead — code blocks
+     are already bounded containers and the header doesn't need to stick. */
+  position: relative;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  min-height: 44px;
+  background: #f7f7f8;
+  border-radius: 16px 16px 0 0;
+}
+html.dark .codeblock-head {
+  background: #1b1b1b;
+}
+
+.codeblock-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: #6b7280;
+}
+html.dark .codeblock-icon {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.codeblock-lang {
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  letter-spacing: -0.01em;
+  background: transparent;
+  text-transform: lowercase;
+  user-select: none;
+}
+html.dark .codeblock-lang {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.codeblock-lang-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.codeblock-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: var(--ink-2);
+  border-radius: 50%;
+  animation: codeSpin 0.6s linear infinite;
+}
+
+.codeblock-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 8px;
+  transition: color 180ms ease, background 180ms ease;
+}
+html.dark .codeblock-copy {
+  color: rgba(255, 255, 255, 0.55);
+}
+.codeblock-copy.is-copied {
+  color: #10b981;
+  animation: yua-copy-flash 420ms ease;
+}
+.codeblock-copy:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+html.dark .codeblock-copy:hover {
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.codeblock-pre {
+  margin: 0;
+  padding: 1rem 1rem 1.25rem;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.codeblock-code {
+  font-size: 15.6px;
+  line-height: 1.7;
+  font-weight: 500;
+  letter-spacing: normal;
+  white-space: pre;
+  display: block;
+  min-width: 0;
+  color: #334155;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+}
+
+/* =========================
+   Chat Markdown dark mode
+========================= */
+.chat-markdown del {
+  text-decoration: none;
+}
+
+html.dark .assistant-bubble,
+html.dark .assistant-content,
+html.dark .chat-markdown,
+html.dark .chat-markdown p,
+html.dark .chat-markdown li,
+html.dark .chat-markdown span,
+html.dark .chat-markdown div {
+  color: var(--text-secondary);
+}
+html.dark .assistant-bubble strong,
+html.dark .chat-markdown strong,
+html.dark .chat-markdown h1,
+html.dark .chat-markdown h2,
+html.dark .chat-markdown h3 {
+  color: var(--text-primary);
+}
+
+html.dark .codeblock-code,
+html.dark .codeblock-code * {
+  color: inherit;
+}
+
+html.dark .chat-markdown blockquote {
+  border-left-color: rgba(255, 255, 255, 0.18);
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.05), transparent);
+}
+
+html.dark .chat-markdown .markdown-key {
+  color: var(--text-primary);
+}
+
+/* =========================
+   Streaming table transitions
+========================= */
+.chat-markdown.is-streaming .md-table {
+  transition: opacity 140ms ease;
+}
+.chat-markdown.is-streaming .md-tr {
+  transition: background 140ms ease;
+}
+
+/* =========================
+   Assistant text selection
+========================= */
+.assistant-content .chat-markdown,
+.assistant-content .chat-markdown * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* =========================
+   DeepThinkingDrawer Timeline
+========================= */
+.yua-drawer-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 0;
+}
+
+.yua-drawer-node {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.yua-drawer-rail {
+  position: relative;
+  width: 18px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.yua-drawer-dot {
+  position: relative;
+  margin-top: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #6b7280;
+}
+
+.yua-drawer-line {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  background: #e5e7eb;
+  transition: height 260ms cubic-bezier(.22,.61,.36,1);
+}
+.yua-drawer-line-top {
+  top: 0;
+  height: 14px;
+}
+.yua-drawer-line-bottom {
+  top: 18px;
+  bottom: 0;
+}
+
+[data-yua-panel="drawer"]
+  .yua-drawer-node:last-child
+  .yua-drawer-line-bottom {
+  display: none;
+}
+
+.yua-drawer-content {
+  min-width: 0;
+  flex: 1;
+  line-height: 1.62;
+}
+
+.yua-drawer-title {
+  font-size: 17px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: #111827;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+
+.yua-drawer-body {
+  font-size: 16px;
+  line-height: 1.65;
+  color: #4b5563;
+}
+
+/* Drawer scoped overrides */
+[data-yua-panel="drawer"] {
+  background: #ffffff;
+  font-family: "Emoji Override", ui-sans-serif, -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Inter", "Segoe UI",
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji",
+    sans-serif;
+  letter-spacing: -0.01em;
+}
+[data-yua-panel="drawer"] .yua-drawer-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+[data-yua-panel="drawer"] .yua-md-p {
+  margin: 4px 0;
+}
+[data-yua-panel="drawer"] .yua-md-ul {
+  margin: 8px 0;
+  padding-left: 18px;
+}
+[data-yua-panel="drawer"] .yua-md-li {
+  margin: 4px 0;
+}
+[data-yua-panel="drawer"] .yua-drawer-timeline {
+  gap: 10px;
+}
+[data-yua-panel="drawer"] .yua-drawer-dot {
+  width: 6px;
+  height: 6px;
+  background: #9ca3af;
+}
+[data-yua-panel="drawer"] .yua-drawer-line {
+  background: rgba(255, 255, 255, 0.15);
+  width: 1.2px;
+}
+[data-yua-panel="drawer"] .yua-skeleton-line {
+  opacity: 0.85;
+}
+[data-yua-panel="drawer"] .yua-drawer-node {
+  padding-bottom: 4px;
+}
+
+/* Dark drawer overrides */
+html.dark [data-yua-panel="drawer"] {
+  background: var(--surface-panel);
+}
+html.dark .yua-drawer-title {
+  color: var(--text-primary);
+}
+html.dark .yua-drawer-body {
+  color: var(--text-secondary);
+}
+html.dark .yua-drawer-dot {
+  background: rgba(255, 255, 255, 0.55);
+}
+html.dark .yua-drawer-line {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* =========================
+   Step Row (Activity Panel)
+========================= */
+.yua-step-row.yua-drawer-node {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  column-gap: 12px;
+  align-items: stretch;
+}
+
+.yua-step-rail {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  align-self: stretch;
+  --yua-step-dot: 12px;
+  --yua-step-dot-offset: 8px;
+}
+
+.yua-step-dot {
+  width: var(--yua-step-dot);
+  height: var(--yua-step-dot);
+  background: #9ca3af;
+  clip-path: polygon(
+    50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%,
+    50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%
+  );
+  margin-top: var(--yua-step-dot-offset);
+}
+html.dark .yua-step-dot {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.yua-step-line {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  background: #e5e7eb;
+}
+html.dark .yua-step-line {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.yua-step-line-top {
+  top: 0;
+  height: calc(var(--yua-step-dot-offset) + (var(--yua-step-dot) / 2));
+}
+
+.yua-step-line-bottom {
+  top: calc(var(--yua-step-dot-offset) + (var(--yua-step-dot) / 2));
+  bottom: -10px;
+}
+
+/* =========================
+   Skeleton loading
+========================= */
+.yua-skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%);
+  background-size: 400% 100%;
+  animation: yuaSkeletonShimmer 1.2s ease-in-out infinite;
+}
+html.dark .yua-skeleton-line {
+  background: linear-gradient(90deg, #2a2a2a 25%, #333 37%, #2a2a2a 63%);
+  background-size: 400% 100%;
+}
+
+/* =========================
+   Chunk Row (thinking panel)
+========================= */
+.yua-chunk-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.yua-chunk-main {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+}
+.yua-chunk-side {
+  width: 90px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* =========================
+   Inline stream
+========================= */
+.yua-inline-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 720px;
+}
+.yua-inline-line {
+  position: relative;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  word-break: break-word;
+  font-size: 17px;
+  line-height: 1.65;
+  font-weight: 600;
+  color: #4b5563;
+}
+html.dark .yua-inline-line {
+  color: var(--text-secondary);
+}
+
+/* =========================
+   Source chips
+========================= */
+.yua-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f5f6f8;
+  color: #4b5563;
+  text-decoration: none;
+  cursor: pointer;
+  /* FIXED: removed transform transition — causes sub-pixel jitter during scroll */
+  transition: background 0.15s ease;
+  position: relative;
+  animation: yuaChipIn 0.25s ease both;
+}
+.yua-source-chip:hover {
+  background: #e8eaee;
+}
+html.dark .yua-source-chip {
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.92);
+}
+html.dark .yua-source-chip:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.yua-source-chip-label {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================
+   Tool chips
+========================= */
+.yua-tool-chip {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  background: #f3f4f6;
+  color: #374151;
+  text-decoration: none;
+  /* FIXED: transition: all is expensive — use specific properties */
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.yua-tool-chip:hover {
+  background: #e5e7eb;
+}
+
+/* =========================
+   Search highlight
+========================= */
+.search-highlight-active {
+  animation: search-pulse 2s ease-out;
+}
+@keyframes search-pulse {
+  0% { background-color: rgba(59, 130, 246, 0.15); }
+  100% { background-color: transparent; }
+}
+html.dark .search-highlight-active {
+  animation: search-pulse-dark 2s ease-out;
+}
+@keyframes search-pulse-dark {
+  0% { background-color: rgba(59, 130, 246, 0.2); }
+  100% { background-color: transparent; }
+}
+
+/* =========================
+   Sources block
+========================= */
+.yua-sources-block {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+html.dark .yua-sources-block {
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+.yua-sources-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+}
+html.dark .yua-sources-title {
+  color: var(--text-secondary);
+}
+
+.yua-source-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f9fafb;
+  transition: background 0.15s ease;
+  text-decoration: none;
+  align-items: center;
+}
+html.dark .yua-source-card {
+  background: #1b1b1b;
+}
+.yua-source-card:hover {
+  background: #f3f4f6;
+}
+html.dark .yua-source-card:hover {
+  background: #1f1f1f;
+}
+
+.yua-source-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+html.dark .yua-source-card-title {
+  color: var(--text-primary);
+}
+.yua-source-card-host {
+  font-size: 12px;
+  color: #6b7280;
+}
+html.dark .yua-source-card-host {
+  color: var(--text-secondary);
+}
+.yua-source-card-preview {
+  font-size: 13px;
+  color: #4b5563;
+}
+html.dark .yua-source-card-preview {
+  color: var(--text-secondary);
+}
+
+/* =========================
+   Premium interaction helpers
+========================= */
+
+/* Smooth press feedback */
+.press-scale {
+  transition: opacity 0.15s ease;
+}
+.press-scale:active {
+  opacity: 0.85;
+}
+
+/* Glass panel effect */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.96);
+}
+html.dark .glass-panel {
+  background: rgba(32, 32, 32, 0.96);
+}
+
+/* Elevated surface shadow */
+.shadow-elevated {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.06);
+}
+html.dark .shadow-elevated {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Focus ring */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--app-bg), 0 0 0 4px rgba(59, 130, 246, 0.5);
+}
+
+/* Hover lift */
+.hover-lift {
+  transition: box-shadow 0.2s ease;
+}
+.hover-lift:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+html.dark .hover-lift:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Sidebar item hover glow */
+.sb-item-hover {
+  position: relative;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sb-item-hover:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+html.dark .sb-item-hover:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Smooth icon transition */
+.icon-transition {
+  transition: color 0.15s ease;
+}
+
+/* Input glow on focus */
+.input-glow:focus-within {
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.3),
+    0 0 0 4px rgba(59, 130, 246, 0.08),
+    0 4px 16px rgba(59, 130, 246, 0.06);
+}
+html.dark .input-glow:focus-within {
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.4),
+    0 0 0 4px rgba(59, 130, 246, 0.1),
+    0 4px 16px rgba(59, 130, 246, 0.05);
+}
+
+/* Send button pulse */
+@keyframes sendPulse {
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+.send-pulse {
+  animation: sendPulse 0.6s ease-out;
+}
+
+/* =========================
+   Chat Markdown Typography (from yua-web SSOT)
+========================= */
+
+/* Assistant bubble base */
+.assistant-bubble {
+  /* FIXED: removed clamp() with vw units — viewport-relative font-size causes
+     sub-pixel recalculation on every scroll frame in Electron/Chromium,
+     resulting in visible text jitter/shaking. Use fixed px instead. */
+  font-size: 17px;
+  /* FIXED: 17px * 1.75 = 29.75px (fractional) → 30px (integer).
+     Fractional line-height causes sub-pixel baseline rounding flips during scroll. */
+  line-height: 30px;
+  color: var(--ink-2);
+  position: relative;
+  /* contain REMOVED — causes vertical text wobble in Electron compositor */
+}
+html.dark .assistant-bubble {
+  color: var(--text-primary);
+}
+
+.assistant-content {
+  width: 100%;
+  max-width: none;
+  transition: none;
+}
+
+.assistant-bubble strong {
+  font-size: 1em;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+
+/* =========================
+   Markdown paragraph (.md-p)
+========================= */
+.chat-markdown .md-p {
+  margin: 0.9em 0;
+  line-height: 1.75;
+}
+
+.chat-markdown .md-p + .md-p {
+  margin-top: 0.65em;
+}
+
+/* key paragraph: data-md-key=1 */
+.chat-markdown .md-p[data-md-key="1"] {
+  margin: 1.1em 0 0.6em;
+  font-weight: 600;
+  color: var(--ink);
+}
+html.dark .chat-markdown .md-p[data-md-key="1"] {
+  color: var(--text-primary);
+}
+
+/* =========================
+   Markdown headings (.md-heading)
+========================= */
+.chat-markdown .md-heading {
+  margin: 1.85em 0 0.65em;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.chat-markdown .md-heading-1 { font-size: 18.5px; }
+.chat-markdown .md-heading-2 { font-size: 18px; }
+.chat-markdown .md-heading-3 { font-size: 17.5px; }
+
+.chat-markdown {
+  position: relative;
+  padding-left: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* =========================
+   Markdown Table (.md-table, .md-thead, .md-tbody, .md-tr, .md-th, .md-td)
+========================= */
+.chat-markdown .md-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 24px 0;
+}
+
+.chat-markdown .md-table {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 15.5px;
+  background: #fff;
+  border: 1px solid #eef0f3;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.chat-markdown .md-th,
+.chat-markdown .md-td {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f2f4;
+  text-align: center;
+}
+
+.chat-markdown .md-th {
+  background: #fafafa;
+  font-weight: 650;
+  color: #111827;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.chat-markdown .md-tr {
+  transition: background 160ms ease;
+}
+.chat-markdown .md-tr:hover {
+  background: transparent;
+}
+.chat-markdown .md-tr:active {
+  background: rgba(0, 0, 0, 0.03);
+}
+.chat-markdown .md-tr:active .md-td {
+  opacity: 0.85;
+}
+
+.chat-markdown .md-tr:last-child .md-td {
+  border-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-markdown .md-tr { transition: none; }
+  .chat-markdown .md-tr:active .md-td { transform: none; }
+}
+
+/* Dark mode table */
+html.dark .chat-markdown .md-table {
+  background: #1e1e1e;
+  border-color: rgba(255, 255, 255, 0.10);
+}
+html.dark .chat-markdown .md-th {
+  background: #2a2a2a;
+  color: #f0f0f0;
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+html.dark .chat-markdown .md-td {
+  color: #e0e0e0;
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+html.dark .chat-markdown .md-tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+html.dark .chat-markdown .md-tr:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* =========================
+   Markdown Inline Code
+========================= */
+.chat-markdown code:not(pre code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.88em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: #111827;
+}
+html.dark .chat-markdown code:not(pre code) {
+  background: #2a2a2a;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* =========================
+   Branch Block (.branch-block, .headingRow)
+========================= */
+.chat-markdown .branch-block .headingRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+html.dark .chat-markdown .branch-block .headingRow {
+  color: var(--text-primary);
+}
+
+.chat-markdown .branch-block .badge {
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+html.dark .chat-markdown .branch-block .badge {
+  color: var(--text-secondary);
+}
+
+.chat-markdown .branch-block {
+  margin-top: 1.4em;
+  margin-bottom: 0;
+  padding-bottom: 0.01px;
+}
+
+.branch-block .title {
+  font-size: 1em;
+}
+html.dark .branch-block .title {
+  color: var(--text-primary);
+}
+
+.chat-markdown .branch-block[data-md-lead="major"] {
+  position: relative;
+  margin-top: 1.15em;
+  padding-top: 0.55em;
+  padding-bottom: 0.01px;
+}
+.chat-markdown .branch-block[data-md-lead="major"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: var(--line);
+  opacity: 0.9;
+}
+html.dark .chat-markdown .branch-block[data-md-lead="major"]::before {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.chat-markdown .branch-block[data-md-lead="major"] .headingRow {
+  font-size: 28px;
+  line-height: 1.28;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+}
+
+.chat-markdown .branch-block[data-md-lead="section"] .headingRow {
+  font-size: 20px;
+  line-height: 1.38;
+  font-weight: 650;
+}
+
+.chat-markdown .branch-block[data-md-lead="minor"] .headingRow {
+  font-size: 19px;
+  line-height: 1.42;
+  font-weight: 630;
+}
+
+.chat-markdown .branch-block[data-md-lead="numbered"] .title {
+  font-size: 1.18em;
+  font-weight: 700;
+}
+
+.chat-markdown .branch-block[data-md-lead="section"] .title {
+  font-size: 1.12em;
+  font-weight: 650;
+}
+
+.chat-markdown .branch-block[data-md-lead="minor"] .title {
+  font-size: 19px !important;
+  line-height: 1.45;
+  font-weight: 650;
+}
+
+.branch-block .badge,
+.branch-block .emoji {
+  font-size: inherit !important;
+  line-height: inherit;
+}
+html.dark .branch-block .emoji {
+  color: var(--text-secondary);
+}
+
+.branch-block .emoji {
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+.major-emoji {
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+.branch-block[data-md-lead="major"] .headingRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* =========================
+   Lists
+========================= */
+.chat-markdown ul,
+.chat-markdown ol {
+  margin: 14px 0 16px;
+  padding-left: 1.45rem;
+}
+
+.chat-markdown li {
+  margin: 6px 0;
+  line-height: 1.75;
+}
+
+.chat-markdown li::marker {
+  color: rgba(100, 116, 139, 0.7);
+  font-weight: 500;
+  font-size: 0.9em;
+}
+
+.chat-markdown ul ul,
+.chat-markdown ol ol {
+  margin-top: 6px;
+}
+
+.chat-markdown .md-p + ul,
+.chat-markdown .md-p + ol {
+  margin-top: 0.7em;
+}
+
+.chat-markdown ul + .md-p,
+.chat-markdown ol + .md-p {
+  margin-top: 0.9em;
+}
+
+.chat-markdown ul {
+  list-style-type: disc;
+}
+.chat-markdown ol {
+  list-style-type: decimal;
+}
+
+/* =========================
+   Blockquote
+========================= */
+.chat-markdown blockquote {
+  position: relative;
+  margin: 0.55em 0 0.9em;
+  padding: 0.45em 0 0.45em 12px;
+  border-left: 1.5px solid #d1d5db;
+  color: var(--ink-2);
+  background: linear-gradient(to right, rgba(249, 250, 251, 0.85), transparent);
+}
+.chat-markdown blockquote::before {
+  content: "\201C";
+  position: absolute;
+  left: -1px;
+  top: -4px;
+  font-size: 18px;
+  line-height: 1;
+  color: #9ca3af;
+}
+.chat-markdown blockquote > .md-p {
+  font-size: 0.88em;
+  line-height: 1.45;
+  opacity: 0.92;
+}
+.chat-markdown blockquote strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Branch -> Quote collision fix */
+.chat-markdown [data-md-branch="1"] + blockquote {
+  border-left: none;
+  padding-left: 0;
+}
+
+/* =========================
+   Conversation Rhythm
+========================= */
+.chat-markdown .md-p[data-md-rhythm="intro"] {
+  font-size: 1.06em;
+  line-height: 1.8;
+  margin-top: 0.4em;
+}
+.chat-markdown .md-p[data-md-rhythm="flow"] {
+  margin-top: 0.68em;
+}
+.chat-markdown .md-p[data-md-rhythm="turn"] {
+  margin-top: 2.2em;
+  margin-bottom: 0.8em;
+  font-size: 1.22em;
+  line-height: 1.38;
+  font-weight: 700;
+  letter-spacing: -0.014em;
+}
+.chat-markdown .md-p[data-md-rhythm="wrap"] {
+  margin-top: 2em;
+  opacity: 0.95;
+}
+
+/* =========================
+   Structural strong
+========================= */
+.chat-markdown .md-strong-structural {
+  display: inline;
+  margin: 0;
+  font-size: 1em;
+  font-weight: 600;
+}
+
+/* =========================
+   Markdown key
+========================= */
+.chat-markdown .markdown-key {
+  font-size: 19.5px;
+  line-height: 1.55;
+  font-weight: 600;
+  margin: 1.2em 0 0.6em;
+  color: #111827;
+}
+html.dark .chat-markdown .markdown-key {
+  color: var(--text-primary);
+}
+
+/* =========================
+   md-section
+========================= */
+.md-section {
+  margin-top: 1.6em;
+  margin-bottom: 0.4em;
+  font-weight: 600;
+  color: var(--ink);
+}
+.md-section-lg,
+.md-section-md,
+.md-section-sm {
+  font-size: 18px;
+}
+.md-section + .md-p {
+  margin-top: 0.4em;
+}
+
+/* =========================
+   md-heading-3 (standalone)
+========================= */
+.md-heading-3 {
+  font-size: 19px;
+  font-weight: 600;
+  margin-top: 18px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+}
+.md-heading-3 .badge {
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+/* =========================
+   Semantic blocks
+========================= */
+.semantic-block {
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 16px 0;
+}
+.semantic-insight { background: rgba(99, 102, 241, 0.08); }
+.semantic-emphasis { background: rgba(244, 63, 94, 0.08); }
+.semantic-warning { background: rgba(251, 191, 36, 0.10); }
+.semantic-thinking { background: rgba(14, 165, 233, 0.08); }
+
+/* =========================
+   Emoji context
+========================= */
+.assistant-bubble .emoji-context {
+  opacity: 0.35;
+  font-size: 0.95em;
+  user-select: none;
+}
+.emoji-context {
+  opacity: 0.32;
+  font-size: 0.95em;
+  line-height: 1;
+  user-select: none;
+  filter: saturate(0.9);
+}
+
+/* =========================
+   Headings
+========================= */
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3 {
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.chat-markdown h3 {
+  font-size: 18px;
+  margin-top: 1.8em;
+  margin-bottom: 0.6em;
+  font-weight: 650;
+}
+
+/* =========================
+   Thinking Panel / Stream Overlay CSS
+========================= */
+[data-ssot="thinking-panel"] {
+  position: relative;
+  z-index: 1;
+  user-select: none;
+}
+[data-ssot="thinking-panel"] .animate-bounce {
+  opacity: 0.75;
+}
+[data-ssot="thinking-complete"] {
+  user-select: none;
+}
+
+/* Thinking inline */
+.yua-thinking-inline {
+  position: relative;
+  overflow: visible;
+  user-select: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 75%;
+}
+
+.yua-thinking-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.yua-thinking-line {
+  position: relative;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+  font-size: 1.02em;
+  color: #6b7280;
+  opacity: 1;
+  animation: yua-think-line-in 220ms ease-out both;
+  transition: opacity 180ms ease;
+}
+.dark .yua-title-swap {
+  color: var(--text-primary);
+}
+.yua-thinking-line.is-older {
+  opacity: 0.62;
+}
+.yua-thinking-line.is-latest {
+  color: #374151;
+  opacity: 1;
+}
+html.dark .yua-thinking-line {
+  color: var(--text-secondary);
+}
+html.dark .yua-thinking-line.is-latest {
+  color: var(--text-primary);
+}
+.yua-thinking-text {
+  display: inline;
+}
+@keyframes yua-think-line-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+[data-ssot="stream-overlay-anchor"] {
+  margin-bottom: 12px;
+}
+
+/* Light sweep — disabled to prevent scroll jitter from infinite animation */
+
+/* =========================
+   Thinking Timeline
+========================= */
+.yua-timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-left: 0;
+}
+
+.yua-node {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  opacity: 0;
+  animation: yua-node-in 240ms ease forwards;
+  animation-delay: calc(var(--index) * 40ms);
+}
+
+@keyframes yua-node-in {
+  to { opacity: 1; }
+}
+
+.yua-node .yua-index {
+  font-size: 13px;
+  font-weight: 600;
+  color: #9ca3af;
+  width: 22px;
+  text-align: right;
+  flex-shrink: 0;
+}
+html.dark .yua-node .yua-index {
+  color: var(--text-muted);
+}
+
+.yua-content {
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #374151;
+}
+html.dark .yua-content {
+  color: var(--text-secondary);
+}
+
+.yua-title {
+  font-weight: 600;
+  color: #111827;
+  letter-spacing: -0.01em;
+}
+html.dark .yua-title {
+  color: var(--text-primary);
+}
+
+.yua-body {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #6b7280;
+}
+html.dark .yua-body {
+  color: var(--text-secondary);
+}
+
+.yua-node.is-active .yua-title {
+  font-weight: 700;
+}
+
+/* =========================
+   Answer visibility (SSOT)
+========================= */
+.assistant-content[data-answer-visible="1"] {
+  opacity: 1;
+  transform: none;
+  animation: none;
+}
+.assistant-content[data-answer-visible="0"] {
+  opacity: 0.25;
+  filter: saturate(0.9);
+}
+
+/* =========================
+   Thinking chips
+========================= */
+.yua-thinking-chip {
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+  color: #374151;
+}
+.yua-thinking-chip:hover {
+  background: #f3f4f6;
+}
+html.dark .yua-thinking-chip {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+html.dark .yua-thinking-chip:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+/* =========================
+   Thinking dots
+========================= */
+.yua-dots {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 6px;
+}
+.yua-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #9ca3af;
+  animation: yua-dot-blink 1.4s infinite ease-in-out;
+}
+.yua-dot:nth-child(2) { animation-delay: 0.2s; }
+.yua-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes yua-dot-blink {
+  0%, 80%, 100% { opacity: 0.2; }
+  40% { opacity: 1; }
+}
+
+/* =========================
+   Thinking skeleton
+========================= */
+.yua-thinking-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 6px;
+}
+.yua-thinking-skel-line {
+  height: 12px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f3f4f6, #e5e7eb, #f3f4f6);
+  background-size: 200% 100%;
+  animation: yua-skel 1.3s linear infinite;
+}
+.yua-thinking-skel-line.short { width: 70%; }
+@keyframes yua-skel {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* =========================
+   Thinking timeline (GPT compact)
+========================= */
+.yua-thinking-timeline {
+  position: relative;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.yua-thinking-timeline::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: #e5e7eb;
+}
+html.dark .yua-thinking-timeline::before {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.yua-thinking-node {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.yua-thinking-dot {
+  position: absolute;
+  left: -13px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #6b7280;
+}
+html.dark .yua-thinking-dot {
+  background: rgba(255, 255, 255, 0.55);
+}
+.yua-thinking-content {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #374151;
+}
+html.dark .yua-thinking-content {
+  color: var(--text-secondary);
+}
+.yua-thinking-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: #111827;
+  margin-bottom: 2px;
+}
+html.dark .yua-thinking-title {
+  color: var(--text-primary);
+}
+.yua-thinking-body {
+  white-space: pre-wrap;
+  color: #4b5563;
+}
+html.dark .yua-thinking-body {
+  color: var(--text-secondary);
+}
+.yua-thinking-snippet {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+html.dark .yua-thinking-snippet {
+  color: var(--text-muted);
+}
+.yua-thinking-node.is-active .yua-thinking-title {
+  font-weight: 700;
+}
+.yua-thinking-node.is-active .yua-thinking-dot {
+  background: #111827;
+  transform: scale(1.1);
+}
+html.dark .yua-thinking-node.is-active .yua-thinking-dot {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* =========================
+   Favicon layout (for drawer sources)
+========================= */
+.yua-favicon-slot {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.yua-favicon-img {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  object-fit: contain;
+}
+.yua-favicon-fallback {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: #e5e7eb;
+}
+
+/* =========================
+   Step source styles (drawer)
+========================= */
+.yua-step-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #111827;
+  margin-bottom: 2px;
+}
+html.dark .yua-step-title {
+  color: var(--text-primary);
+}
+
+.yua-step-sources {
+  margin-top: 6px;
+}
+
+.yua-step-source-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 52px;
+  overflow: hidden;
+  transition: max-height 160ms ease;
+}
+.yua-step-source-row[data-expanded="true"] {
+  max-height: 400px;
+}
+
+.yua-step-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  background: #f3f4f6;
+  color: #374151;
+  white-space: nowrap;
+  transition: background 120ms ease;
+}
+html.dark .yua-step-source-chip {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+.yua-step-source-chip:hover {
+  background: #e5e7eb;
+}
+html.dark .yua-step-source-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.yua-step-source-label {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yua-step-source-more {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  background: #e5e7eb;
+  color: #374151;
+}
+html.dark .yua-step-source-more {
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--text-secondary);
+}
+
+.yua-step-body {
+  margin-top: 8px;
+}
+
+/* Step markdown */
+.yua-step-md-p {
+  font-size: 15px;
+  line-height: 1.7;
+  margin: 6px 0;
+}
+.yua-step-md-ul {
+  padding-left: 18px;
+  margin: 6px 0;
+}
+.yua-step-md-li {
+  margin: 4px 0;
+}
+.yua-step-md-h {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+  margin: 6px 0;
+}
+.yua-step-md-link {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+html.dark .yua-step-md-link {
+  color: #8ab4ff;
+}
+
+.yua-step-ascii-pre {
+  margin: 6px 0;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #1f2937;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: pre;
+  overflow-x: auto;
+  word-break: normal;
+  overflow-wrap: normal;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+html.dark .yua-step-ascii-pre {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: #1b1b1b;
+  color: var(--text-primary);
+}
+
+/* Tool badge & params */
+.yua-tool-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  margin-bottom: 6px;
+}
+html.dark .yua-tool-badge {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+}
+
+.yua-tool-params-pre {
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.04);
+  color: #374151;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  max-height: 200px;
+  overflow-y: auto;
+}
+html.dark .yua-tool-params-pre {
+  background: rgba(255, 255, 255, 0.06);
+  color: #d1d5db;
+}
+
+/* Step translate controls */
+.yua-step-timeline .yua-step-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.yua-step-timeline .yua-step-title {
+  flex: 1;
+  min-width: 0;
+}
+.yua-step-timeline .yua-step-translate-btn {
+  flex: 0 0 auto;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 9999px;
+  border: 1px solid #d8e1ef;
+  background: #f7faff;
+  color: #4b5563;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  /* FIXED: transition: all is expensive — use specific properties */
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+html.dark .yua-step-timeline .yua-step-translate-btn {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+.yua-step-timeline .yua-step-translate-btn:hover:not(:disabled) {
+  border-color: #c7d8f4;
+  background: #eef5ff;
+  color: #374151;
+}
+html.dark .yua-step-timeline .yua-step-translate-btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--text-primary);
+}
+.yua-step-timeline .yua-step-translate-btn:disabled {
+  opacity: 0.62;
+  cursor: default;
+}
+
+/* =========================
+   Language picker (drawer)
+========================= */
+.yua-lang-picker {
+  position: relative;
+  flex: 0 0 auto;
+}
+.yua-lang-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 9999px;
+  border: 1px solid #d8e1ef;
+  background: #f7faff;
+  color: #4b5563;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+}
+html.dark .yua-lang-trigger {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+.yua-lang-trigger:hover {
+  border-color: #c7d8f4;
+  background: #eef5ff;
+  color: #374151;
+}
+html.dark .yua-lang-trigger:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--text-primary);
+}
+
+.yua-lang-globe-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  border: 1.5px solid #3b82f6;
+  background: radial-gradient(circle at 40% 35%, #e0f2fe 0%, #93c5fd 58%, #60a5fa 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+}
+.yua-lang-trigger-text {
+  white-space: nowrap;
+}
+
+.yua-lang-pocket {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 112px;
+  max-height: 110px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  padding: 6px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.10), 0 2px 8px rgba(15, 23, 42, 0.06);
+  z-index: 40;
+}
+html.dark .yua-lang-pocket {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1b1b1b;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.yua-lang-chip {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #374151;
+}
+html.dark .yua-lang-chip {
+  color: var(--text-secondary);
+}
+.yua-lang-chip:hover {
+  background: #f3f4f6;
+}
+html.dark .yua-lang-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.yua-lang-chip.is-active {
+  background: #eaf2ff;
+  color: #1d4ed8;
+}
+html.dark .yua-lang-chip.is-active {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+}
+
+.yua-lang-pocket::-webkit-scrollbar { width: 6px; }
+.yua-lang-pocket::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9999px; }
+html.dark .yua-lang-pocket::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.20); }
+
+/* =========================
+   StreamOverlay stable container
+========================= */
+.stream-overlay-stable {
+  position: relative;
+  margin-bottom: 8px;
+}
+.stream-overlay-slot {
+  overflow: hidden;
+  transition: max-height 200ms ease-out, opacity 180ms ease-out;
+  max-height: 0;
+  opacity: 0;
+  min-height: 44px;
+  transition: opacity 120ms ease;
+}
+.stream-overlay-slot--active {
+  max-height: 300px;
+  opacity: 1;
+  transition: none;
+}
+
+/* AssistantMessage overlay collapse */
+.stream-overlay-collapse {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+  /* contain REMOVED — creates compositor layer boundaries inside scroll container,
+     one per assistant message, causing ~1px baseline wobble during scroll */
+}
+.stream-overlay-collapse--open {
+  max-height: none;
+  opacity: 1;
+  transition: none;
+}
+
+/* =========================
+   Input shell
+========================= */
+[data-ssot="input-shell"] {
+  display: flex;
+  flex-direction: column;
+}
+[data-ssot="input-thinking-row"] {
+  flex-shrink: 0;
+}
+[data-ssot="input-thinking-hint"] {
+  font-size: 13px;
+  color: #374151;
+  opacity: 0.88;
+}
+html.dark [data-ssot="input-thinking-hint"] {
+  color: var(--text-secondary);
+}
+[data-ssot="input-thinking-hint"] button {
+  color: #9ca3af;
+  transition: color 160ms ease;
+}
+html.dark [data-ssot="input-thinking-hint"] button {
+  color: var(--text-muted);
+}
+[data-ssot="input-thinking-hint"] button:hover {
+  color: #374151;
+}
+html.dark [data-ssot="input-thinking-hint"] button:hover {
+  color: var(--text-primary);
+}
+
+/* =========================
+   Chat input caret
+========================= */
+.chat-input-caret {
+  caret-color: #111827;
+}
+html.dark .chat-input-caret {
+  caret-color: rgba(255, 255, 255, 0.9);
+}
+.chat-input-caret:focus {
+  animation: yua-caret-blink 1.2s step-end infinite;
+}
+@keyframes yua-caret-blink {
+  0%, 100% { caret-color: currentColor; }
+  50% { caret-color: transparent; }
+}
+
+/* =========================
+   Message Actions
+========================= */
+.yua-action-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 17px;
+  transition: background 160ms ease, color 160ms ease;
+  color: #9ca3af;
+  background: transparent;
+}
+.yua-action-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+.yua-action-btn:active {
+  background: #e5e7eb;
+}
+.yua-action-btn.is-active {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+html.dark .yua-action-btn {
+  color: rgba(255, 255, 255, 0.4);
+}
+html.dark .yua-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+}
+html.dark .yua-action-btn:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+html.dark .yua-action-btn.is-active {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+/* =========================
+   Image analyzing shimmer
+========================= */
+.yua-image-analyzing {
+  position: relative;
+  display: inline-block;
+  color: #6366f1;
+  overflow: hidden;
+}
+.yua-image-analyzing::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 150%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  /* FIXED: use transform instead of left animation to avoid layout thrash */
+  animation: yua-shimmer 1.4s infinite;
+  will-change: transform;
+}
+@keyframes yua-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* =========================
+   Shine sweep
+========================= */
+.yua-shine {
+  position: relative;
+}
+.yua-shine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  /* FIXED: transform is now in the keyframes; run once then stop */
+  animation: yua-shine-move 3s 1 linear forwards;
+}
+html.dark .yua-shine::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+}
+@keyframes yua-shine-move {
+  /* FIXED: use transform instead of left to avoid layout thrash */
+  from { transform: skewX(-20deg) translateX(-200%); }
+  to { transform: skewX(-20deg) translateX(250%); }
+}
+
+/* =========================
+   Quant Analysis Block
+========================= */
+.yua-quant-block {
+  margin: 8px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-panel);
+  overflow: hidden;
+}
+.yua-quant-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 8px 0;
+}
+.yua-quant-card {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--wash);
+}
+.yua-quant-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.yua-quant-card-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+.yua-quant-card-signal {
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.yua-quant-disclaimer {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  line-height: 1.4;
+}
+.yua-quant-skeleton {
+  animation: yua-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+/* =========================
+   Prism Tokens (SSOT)
+========================= */
+.codeblock-code {
+  color: #334155;
+}
+html.dark .codeblock-code {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+html.dark .codeblock-code .token.plain,
+html.dark .codeblock-code .token.text {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #94a3b8;
+  font-style: normal;
+}
+html.dark .token.comment,
+html.dark .token.prolog,
+html.dark .token.doctype,
+html.dark .token.cdata {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.token.keyword {
+  color: #7c3aed;
+  font-weight: 600;
+}
+html.dark .token.keyword {
+  color: #c4b5fd;
+}
+
+/* SQL-specific keyword */
+.language-sql .token.keyword {
+  color: #6b5bd2;
+}
+html.dark .language-sql .token.keyword {
+  color: #a5b4fc;
+}
+
+.token.function {
+  color: #6366f1;
+  font-weight: 500;
+}
+html.dark .token.function {
+  color: #a5b4fc;
+}
+
+.token.string,
+.token.attr-value {
+  color: #047857;
+}
+html.dark .token.string,
+html.dark .token.attr-value {
+  color: #34d399;
+}
+
+.token.number,
+.token.boolean,
+.token.constant,
+.token.symbol {
+  color: #92400e;
+}
+html.dark .token.number,
+html.dark .token.boolean,
+html.dark .token.constant,
+html.dark .token.symbol {
+  color: #fbbf24;
+}
+
+.token.operator,
+.token.punctuation {
+  color: #64748b;
+}
+html.dark .token.operator,
+html.dark .token.punctuation {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.token.class-name,
+.token.builtin {
+  color: #475569;
+  font-weight: 500;
+}
+html.dark .token.class-name,
+html.dark .token.builtin {
+  color: #93c5fd;
+}
+
+.token.property,
+.token.variable {
+  color: #1e293b;
+}
+html.dark .token.property,
+html.dark .token.variable {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.token.important {
+  color: #111827;
+  font-weight: 600;
+}
+html.dark .token.important {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.token.deleted { color: #b91c1c; }
+html.dark .token.deleted { color: #fca5a5; }
+.token.inserted { color: #166534; }
+html.dark .token.inserted { color: #86efac; }
+
+/* Prism Yellow Tokens */
+.codeblock-code .token.number,
+.codeblock-code .token.constant,
+.codeblock-code .token.boolean,
+.codeblock-code .token.symbol,
+.codeblock-code .token.function,
+.codeblock-code .token.class-name {
+  color: #b58900;
+}
+
+/* Diff theme */
+.codeblock-diff { font-weight: 600; }
+.codeblock-diff .diff-add-sign { color: #16a34a; font-weight: 600; margin-right: 4px; }
+.codeblock-diff .diff-del-sign { color: #dc2626; font-weight: 600; margin-right: 4px; }
+.diff-line { display: inline; white-space: pre; }
+.diff-add-sign { color: #16a34a; font-weight: 600; margin-right: 4px; }
+.diff-del-sign { color: #dc2626; font-weight: 600; margin-right: 4px; }
+.diff-hunk { color: #9ca3af; }
+.codeblock-diff .diff-line { padding-left: 2px; }
+
+/* =========================
+   Sidebar
+========================= */
+.sidebar {
+  background: var(--surface-sidebar);
+  color: var(--text-primary);
+  min-width: 0;
+  overflow-x: hidden;
+}
+.sidebar * {
+  color: var(--text-primary);
+}
+
+/* =========================
+   Mermaid block
+========================= */
+.mermaid-block {
+  margin: 2.2em 0;
+  border: 1px solid #eef0f3;
+  background: #fafafa;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.mermaid-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e5e7eb;
+}
+.mermaid-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: lowercase;
+}
+.mermaid-actions button {
+  margin-left: 8px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+}
+.mermaid-actions button:hover {
+  background: #f3f4f6;
+}
+.mermaid-svg-wrapper {
+  overflow: auto;
+  padding: 18px;
+}
+.mermaid-block.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: white;
+  border-radius: 0;
+}
+
+/* =========================
+   Prism code selection
+========================= */
+.codeblock-pre,
+.codeblock-code,
+.codeblock-code * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+.codeblock-pre,
+.codeblock-code {
+  cursor: text;
+}

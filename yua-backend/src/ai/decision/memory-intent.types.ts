@@ -3,4 +3,5 @@ export type MemoryIntent =
   | "DECISION"
   | "ARCHITECTURE"
   | "LONG_TERM_FACT"
-  | "REMEMBER";
+  | "REMEMBER"
+  | "IMPLICIT";

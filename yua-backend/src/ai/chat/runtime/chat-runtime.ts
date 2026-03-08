@@ -27,6 +27,8 @@ export interface ChatRuntimeInput {
   thinkingProfile: "FAST" | "NORMAL" | "DEEP";
   outmode?: OUTMODE;
   stream: boolean;
+  path?: string;
+  forceSearch?: boolean;
   onSearchProgress?: (ev: any) => void;
 }
 
@@ -41,6 +43,8 @@ export const ChatRuntime = {
       mode,
       outmode,
       stream,
+      path,
+      forceSearch,
     } = input;
 
     // 🔥 ExecutionEngine은 스트림/비스트림 모두 처리
@@ -56,6 +60,8 @@ export const ChatRuntime = {
       sessionId: null,
       outmode,
       stream,
+      path,
+      forceSearch,
     });
 
     return {

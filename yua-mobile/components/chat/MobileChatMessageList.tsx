@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -9,7 +10,14 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { useTheme } from "@/hooks/useTheme";
+import { useAdaptive } from "@/constants/adaptive";
+import { MobileTokens } from "@/constants/tokens";
 
 import MobileChatMessageItem from "@/components/chat/MobileChatMessageItem";
 import type { MobileChatMessage } from "@/features/chat/model/chat-message.types";
@@ -23,6 +31,7 @@ type MobileChatMessageListProps = {
   highlightedMessageId?: string | null;
   onScrolledToMessage?: (messageId: string) => void;
   onScrollFailed?: (messageId: string) => void;
+  onRefresh?: () => Promise<void>;
 };
 
 const SCROLL_BOTTOM_THRESHOLD = 200;
@@ -36,17 +45,42 @@ export default function MobileChatMessageList({
   highlightedMessageId = null,
   onScrolledToMessage,
   onScrollFailed,
+  onRefresh,
 }: MobileChatMessageListProps) {
   const listRef = useRef<FlatList<MobileChatMessage> | null>(null);
   const { width } = useWindowDimensions();
   const { colors } = useTheme();
+  const { messageGap } = useAdaptive();
   const horizontalPad = width >= 768 ? 24 : 18; // --chat-pad-x: 18px
   const handledTargetRef = useRef<string | null>(null);
 
-  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    if (!onRefresh) return;
+    setRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [onRefresh]);
+
+  const separatorComponent = useCallback(
+    () => <View style={{ height: messageGap }} />,
+    [messageGap],
+  );
+
+  const scrollBtnOpacity = useSharedValue(0);
+  const scrollBtnVisible = useRef(false);
   const atBottomRef = useRef(true);
   const contentHeightRef = useRef(0);
   const layoutHeightRef = useRef(0);
+
+  const scrollBtnAnimStyle = useAnimatedStyle(() => ({
+    opacity: scrollBtnOpacity.value,
+    transform: [{ translateY: (1 - scrollBtnOpacity.value) * 8 }],
+    pointerEvents: scrollBtnOpacity.value > 0.1 ? "auto" as const : "none" as const,
+  }));
 
   /* ---------- Auto-scroll to bottom on new messages / streaming tokens ---------- */
   const lastContent = useMemo(
@@ -54,10 +88,18 @@ export default function MobileChatMessageList({
     [messages],
   );
 
+  const prevMsgCountRef = useRef(messages.length);
+
   useEffect(() => {
     if (!atBottomRef.current) return;
+    // Use animated scroll only when a new message arrives (distinct count change)
+    // During streaming token updates (same count, changed content), scroll instantly
+    // to avoid queuing up many competing scroll animations
+    const isNewMessage = messages.length !== prevMsgCountRef.current;
+    prevMsgCountRef.current = messages.length;
+
     const timer = setTimeout(() => {
-      listRef.current?.scrollToEnd({ animated: true });
+      listRef.current?.scrollToEnd({ animated: isNewMessage });
     }, 16);
     return () => clearTimeout(timer);
   }, [messages.length, lastContent]);
@@ -71,19 +113,24 @@ export default function MobileChatMessageList({
         contentSize.height - contentOffset.y - layoutMeasurement.height;
       const isAtBottom = distanceFromBottom <= SCROLL_BOTTOM_THRESHOLD;
       atBottomRef.current = isAtBottom;
-      setShowScrollBtn(!isAtBottom);
+      const shouldShow = !isAtBottom;
+      if (shouldShow !== scrollBtnVisible.current) {
+        scrollBtnVisible.current = shouldShow;
+        scrollBtnOpacity.value = withSpring(shouldShow ? 1 : 0, MobileTokens.spring.snappy);
+      }
       contentHeightRef.current = contentSize.height;
       layoutHeightRef.current = layoutMeasurement.height;
     },
-    [],
+    [scrollBtnOpacity],
   );
 
   /* ---------- Scroll to bottom button ---------- */
   const scrollToBottom = useCallback(() => {
     listRef.current?.scrollToEnd({ animated: true });
     atBottomRef.current = true;
-    setShowScrollBtn(false);
-  }, []);
+    scrollBtnVisible.current = false;
+    scrollBtnOpacity.value = withSpring(0, MobileTokens.spring.snappy);
+  }, [scrollBtnOpacity]);
 
   /* ---------- Target message scrolling ---------- */
   useEffect(() => {
@@ -145,9 +192,19 @@ export default function MobileChatMessageList({
             paddingHorizontal: horizontalPad,
           },
         ]}
-        ItemSeparatorComponent={ItemSeparator}
-        bounces={false}
-        overScrollMode="never"
+        ItemSeparatorComponent={separatorComponent}
+        bounces
+        overScrollMode="auto"
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.linkColor}
+              colors={[colors.linkColor]}
+            />
+          ) : undefined
+        }
         keyboardShouldPersistTaps="handled"
         contentInsetAdjustmentBehavior="never"
         onScroll={handleScroll}
@@ -168,7 +225,7 @@ export default function MobileChatMessageList({
       />
 
       {/* Scroll to bottom button */}
-      {showScrollBtn && (
+      <Animated.View style={[styles.scrollBtnWrap, scrollBtnAnimStyle]}>
         <Pressable
           style={[
             styles.scrollBtn,
@@ -182,17 +239,12 @@ export default function MobileChatMessageList({
               { color: colors.scrollBtnText },
             ]}
           >
-            {"\u2193"} \uC544\uB798\uB85C
+            {"\u2193"} 아래로
           </Text>
         </Pressable>
-      )}
+      </Animated.View>
     </View>
   );
-}
-
-/* ---------- Separator (gap-2 = 8px) ---------- */
-function ItemSeparator() {
-  return <View style={styles.separator} />;
 }
 
 const styles = StyleSheet.create({
@@ -200,13 +252,12 @@ const styles = StyleSheet.create({
   content: {
     paddingTop: 12,
   },
-  separator: {
-    height: 8, // gap-2
-  },
-  scrollBtn: {
+  scrollBtnWrap: {
     position: "absolute",
     bottom: 16,
     alignSelf: "center",
+  },
+  scrollBtn: {
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 7,

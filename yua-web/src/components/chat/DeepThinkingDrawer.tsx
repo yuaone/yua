@@ -322,8 +322,8 @@ export default function DeepThinkingDrawer(props: Props) {
 
   const hashBody = useCallback((input: string) => {
     let h = 2166136261;
-    for (let i = 0; i < input.length; i++) {
-      h ^= input.charCodeAt(i);
+    for (const ch of input) {
+      h ^= ch.codePointAt(0) ?? 0;
       h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
     }
     return (h >>> 0).toString(16);
@@ -481,6 +481,51 @@ export default function DeepThinkingDrawer(props: Props) {
 
                     <div className="yua-step-body">
                       {(() => {
+                        // Tool kind: structured code block display
+                        const isToolStep =
+                          step.kind === ActivityKind.TOOL ||
+                          step.kind === ActivityKind.CODE_INTERPRETING ||
+                          step.kind === ActivityKind.EXECUTING;
+                        if (isToolStep) {
+                          const meta = step.meta as Record<string, any> | null;
+                          const toolName = titleText || meta?.toolName || null;
+                          const rawParams = meta?.params ?? meta?.arguments ?? meta?.input;
+                          const rawResult = meta?.result ?? meta?.output;
+
+                          let paramsStr: string | null = null;
+                          if (rawParams && typeof rawParams === "object") {
+                            paramsStr = JSON.stringify(rawParams, null, 2);
+                          } else if (typeof rawParams === "string") {
+                            try { paramsStr = JSON.stringify(JSON.parse(rawParams), null, 2); } catch { paramsStr = rawParams; }
+                          }
+
+                          let resultStr: string | null = null;
+                          if (typeof rawResult === "string") {
+                            resultStr = rawResult;
+                          } else if (rawResult && typeof rawResult === "object") {
+                            resultStr = JSON.stringify(rawResult, null, 2);
+                          }
+
+                          // Fallback: parse body as JSON
+                          if (!paramsStr && !resultStr && displayBody.trim()) {
+                            try { paramsStr = JSON.stringify(JSON.parse(displayBody.trim()), null, 2); } catch { resultStr = displayBody.trim(); }
+                          }
+
+                          return (
+                            <>
+                              {toolName && (
+                                <span className="yua-tool-badge">{toolName}</span>
+                              )}
+                              {paramsStr && (
+                                <pre className="yua-tool-params-pre">{paramsStr}</pre>
+                              )}
+                              {resultStr && (
+                                <p className="yua-step-md-p" style={{ marginTop: 4 }}>{resultStr}</p>
+                              )}
+                            </>
+                          );
+                        }
+
                         const ascii = extractAsciiDiagramBody(displayBody);
                         if (ascii) {
                           return <pre className="yua-step-ascii-pre">{ascii}</pre>;

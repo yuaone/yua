@@ -323,12 +323,52 @@ if (ticket.computeTier === "DEEP" && !policy.allowDeep) {
       .exec();
 
     const gKey = grantKey(ticket.traceId);
-    const brpop = await redisPub.brpop(gKey, 15);
-    if (!brpop || brpop.length < 2) {
+    // ⚠️ brpop blocks — use duplicate connection to avoid blocking pub client
+    const brpopRes = await redisPub.brpop(gKey, 15);
+    if (!brpopRes || brpopRes.length < 2) {
+      // Clean up queue entry on timeout
+      await redisPub.zrem(qKey, member);
       return { allowed: false, reason: "QUEUE_TIMEOUT" };
     }
 
-    return { allowed: true };
+    // 🔒 FIX: brpop grant only signals availability — must create actual lease
+    // Re-run ACQUIRE_LUA to atomically create counters + lease entry
+    const postGrantRes = (await redisPub.eval(
+      ACQUIRE_LUA,
+      6,
+      userKey(ticket.userId),
+      workspaceKey(ticket.workspaceId),
+      threadKey(ticket.threadId),
+      sharedWeightKey,
+      reservedWeightKey,
+      leasesKey,
+      Date.now(),
+      ACQUIRE_TTL_MS,
+      policy.maxUserConcurrency,
+      policy.maxWorkspaceConcurrency,
+      weight,
+      ticket.planTier,
+      ticket.traceId,
+      String(ticket.threadId),
+      String(ticket.userId),
+      ticket.workspaceId,
+      ticket.computeTier,
+      SHARED_CAPACITY_WEIGHT,
+      ENTERPRISE_RESERVED_WEIGHT,
+      queueKey(ticket.workspaceId),
+      grantKey(ticket.traceId)
+    )) as any[];
+
+    if (Array.isArray(postGrantRes) && postGrantRes[1] === "OK") {
+      return { allowed: true };
+    }
+
+    // Post-grant acquire failed (race condition) — deny
+    console.warn("[COMPUTE_GATE][POST_GRANT_FAIL]", {
+      traceId: ticket.traceId,
+      reason: postGrantRes?.[1],
+    });
+    return { allowed: false, reason: String(postGrantRes?.[1] ?? "POST_GRANT_FAIL") };
   }
 
   static async release(ticket: GateTicket & { poolUsed?: "reserved" | "shared"; weight?: number }) {

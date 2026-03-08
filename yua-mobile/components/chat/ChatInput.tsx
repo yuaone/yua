@@ -1,26 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
-  useWindowDimensions,
 } from "react-native";
 import type { AttachmentMeta } from "yua-shared/chat/attachment-types";
 
 import AttachmentPreviewRow from "@/components/chat/AttachmentPreviewRow";
+import { useAdaptive } from "@/constants/adaptive";
+import { MobileTokens } from "@/constants/tokens";
 import { useMobileThinkingProfile } from "@/hooks/useMobileThinkingProfile";
 import { useTheme } from "@/hooks/useTheme";
 
-type InputMode = "ask" | "analyze" | "write" | "idea";
+// TODO: integrate useDraftStore for persistence
 
-const MODE_META: Record<InputMode, { hint: string }> = {
-  ask: { hint: "궁금한 걸 바로 물어보세요" },
-  analyze: { hint: "내용을 붙여넣고 분석 요청" },
-  write: { hint: "문서를 작성해보세요" },
-  idea: { hint: "아이디어를 빠르게 정리" },
-};
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
 
 type ChatInputProps = {
   streaming: boolean;
@@ -30,7 +29,35 @@ type ChatInputProps = {
   onPressAttachment?: () => void;
   attachments?: AttachmentMeta[];
   onRemoveAttachment?: (id: string) => void;
+  /** Pre-fill input text (e.g. from QuickPromptBar) */
+  draftText?: string;
+  /** Called after draftText is consumed */
+  onDraftConsumed?: () => void;
 };
+
+/* ------------------------------------------------------------------ */
+/*  Constants                                                          */
+/* ------------------------------------------------------------------ */
+
+const INPUT_MIN_HEIGHT = MobileTokens.layout.inputBarMinHeight; // 52
+const INPUT_MAX_HEIGHT = MobileTokens.layout.inputBarMaxHeight; // 200
+const BTN_SIZE = 32;
+const STOP_ICON_SIZE = 10;
+const LINE_LIMIT = 4000;
+const LINE_WARN_THRESHOLD = 3800;
+
+/** Count lines using charCodeAt — handles Korean IME correctly */
+function countLines(text: string): number {
+  let count = 1;
+  for (let i = 0; i < text.length; i++) {
+    if (text.charCodeAt(i) === 10) count++;
+  }
+  return count;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
 
 export default function ChatInput({
   streaming,
@@ -40,29 +67,39 @@ export default function ChatInput({
   onPressAttachment,
   attachments = [],
   onRemoveAttachment,
+  draftText,
+  onDraftConsumed,
 }: ChatInputProps) {
   const [value, setValue] = useState("");
-  const [inputHeight, setInputHeight] = useState(52);
+  const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
   const [focused, setFocused] = useState(false);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { width } = useWindowDimensions();
+
   const { colors, isDark } = useTheme();
-  const horizontalPad = width >= 768 ? 18 : 12;
-  const mode: InputMode = "ask";
+  const { inputPad } = useAdaptive();
   const { enabled, profile, disable } = useMobileThinkingProfile();
+
+  const lineCount = countLines(value);
+  const overLimit = lineCount > LINE_LIMIT;
+  const showLineWarning = lineCount > LINE_WARN_THRESHOLD;
 
   const hasText = value.trim().length > 0;
   const hasAttachments = attachments.length > 0;
-  const canSend = (hasText || hasAttachments) && !disabled && !streaming;
-  const isTall = inputHeight > 72;
-  const sendAtBottom = (attachments.length > 0 && !value.trim()) || isTall;
+  const canSend = (hasText || hasAttachments) && !disabled && !streaming && !overLimit;
+  const showSend = hasText || hasAttachments || streaming;
+
+  /* ---- handlers ---- */
 
   const handleSend = async () => {
     const text = value.trim();
     if (!text && !hasAttachments) return;
     setValue("");
-    setInputHeight(52);
+    setInputHeight(INPUT_MIN_HEIGHT);
     await onSend(text);
+  };
+
+  const handleStop = () => {
+    onStop?.();
   };
 
   const handlePressAttachment = () => {
@@ -76,7 +113,29 @@ export default function ChatInput({
     };
   }, []);
 
-  const placeholder = MODE_META[mode].hint;
+  /* ---- Consume draftText from parent ---- */
+  useEffect(() => {
+    if (draftText) {
+      setValue(draftText);
+      onDraftConsumed?.();
+    }
+  }, [draftText, onDraftConsumed]);
+
+  /* ---- shadow (platform-specific) ---- */
+
+  const shadowStyle = Platform.select({
+    ios: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: -1 },
+      shadowOpacity: focused ? 0.08 : 0.04,
+      shadowRadius: focused ? 8 : 4,
+    },
+    android: {
+      elevation: focused ? 6 : 3,
+    },
+  });
+
+  /* ---- render ---- */
 
   return (
     <View style={styles.root}>
@@ -85,175 +144,291 @@ export default function ChatInput({
           styles.shell,
           {
             backgroundColor: colors.inputShellBg,
-            borderColor: focused ? colors.inputShellFocusBorder : colors.inputShellBorder,
-            paddingHorizontal: horizontalPad,
+            borderColor: focused
+              ? colors.inputShellFocusBorder
+              : colors.inputShellBorder,
+            paddingHorizontal: inputPad,
           },
+          shadowStyle,
         ]}
       >
+        {/* ---- DEEP chip (above input area) ---- */}
         {enabled && profile === "DEEP" ? (
-          <View style={styles.thinkChipRow}>
-            <Pressable style={styles.thinkChip} onPress={disable}>
-              <Text style={styles.thinkChipText}>DEEP ×</Text>
+          <View style={styles.chipRow}>
+            <Pressable
+              style={[
+                styles.deepChip,
+                { backgroundColor: colors.thinkDeepChipBg },
+              ]}
+              onPress={disable}
+              accessibilityRole="button"
+              accessibilityLabel="DEEP 모드 해제"
+            >
+              <Text
+                style={[
+                  styles.deepChipText,
+                  { color: colors.thinkDeepChipColor },
+                ]}
+              >
+                DEEP
+              </Text>
+              <Text
+                style={[
+                  styles.deepChipDismiss,
+                  { color: colors.thinkDeepChipColor },
+                ]}
+              >
+                {"\u00D7"}
+              </Text>
             </Pressable>
           </View>
         ) : null}
-        {attachments.length > 0 ? (
+
+        {/* ---- Attachment preview ---- */}
+        {hasAttachments ? (
           <View style={styles.attachmentsWrap}>
-            <AttachmentPreviewRow attachments={attachments} onRemove={onRemoveAttachment} />
+            <AttachmentPreviewRow
+              attachments={attachments}
+              onRemove={onRemoveAttachment}
+            />
           </View>
         ) : null}
 
+        {/* ---- Input row: [+] TextInput [Send/Stop] ---- */}
         <View style={styles.inputRow}>
+          {/* Plus button (left) */}
           <Pressable
-            style={[styles.attachBtn, { backgroundColor: isDark ? colors.iconBtnBg : "#e2e8f0" }]}
+            style={[
+              styles.plusBtn,
+              {
+                backgroundColor: isDark
+                  ? "rgba(255,255,255,0.1)"
+                  : "#f1f5f9",
+              },
+            ]}
             onPress={handlePressAttachment}
+            accessibilityRole="button"
+            accessibilityLabel="첨부파일 추가"
           >
-            <Text style={[styles.attachText, { color: colors.inputText }]}>+</Text>
+            <Text style={[styles.plusIcon, { color: colors.inputText }]}>
+              +
+            </Text>
           </Pressable>
+
+          {/* TextInput */}
           <TextInput
             value={value}
             onChangeText={setValue}
-            placeholder={placeholder}
+            placeholder="메시지를 입력하세요..."
             multiline
             editable={!disabled && !streaming}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             onContentSizeChange={(e) => {
-              const next = Math.min(Math.max(52, e.nativeEvent.contentSize.height + 10), 200);
-              setInputHeight(next);
+              const h = e.nativeEvent.contentSize.height + 12;
+              setInputHeight(
+                Math.min(Math.max(INPUT_MIN_HEIGHT, h), INPUT_MAX_HEIGHT),
+              );
             }}
             placeholderTextColor={colors.inputPlaceholder}
-            style={[styles.input, { color: colors.inputText, height: inputHeight }]}
+            style={[
+              styles.input,
+              {
+                color: colors.inputText,
+                height: inputHeight,
+                opacity: streaming ? 0.5 : 1,
+              },
+            ]}
           />
 
-          <View style={[styles.sendWrap, sendAtBottom ? styles.sendBottom : styles.sendCenter]}>
+          {/* Right button area */}
+          <View style={styles.rightBtnWrap}>
             {streaming ? (
-              <Pressable style={styles.actionBtn} onPress={onStop}>
-                <Text style={styles.actionText}>Stop</Text>
-              </Pressable>
-            ) : (
+              /* ---- Stop button (red square) ---- */
               <Pressable
-                style={[styles.actionBtn, !canSend ? styles.actionBtnDisabled : null]}
+                style={styles.stopBtn}
+                onPress={handleStop}
+                accessibilityRole="button"
+                accessibilityLabel="생성 중지"
+              >
+                <View style={styles.stopIcon} />
+              </Pressable>
+            ) : showSend ? (
+              /* ---- Send button (circle arrow) ---- */
+              <Pressable
+                style={[
+                  styles.sendBtn,
+                  {
+                    backgroundColor: canSend
+                      ? colors.buttonBg
+                      : isDark
+                        ? "rgba(255,255,255,0.15)"
+                        : "#cbd5e1",
+                  },
+                ]}
                 disabled={!canSend}
                 onPress={handleSend}
+                accessibilityRole="button"
+                accessibilityLabel="메시지 전송"
               >
-                <Text style={styles.actionText}>Send</Text>
+                {/* Up-arrow SVG-like using unicode */}
+                <Text style={styles.sendArrow}>{"\u2191"}</Text>
               </Pressable>
+            ) : (
+              /* ---- Empty: no button when no text/attachments ---- */
+              <View style={styles.rightSpacer} />
             )}
           </View>
         </View>
+
+        {/* ---- Line limit warning ---- */}
+        {showLineWarning ? (
+          <Text
+            style={[
+              styles.lineWarning,
+              { color: colors.statusFailed },
+            ]}
+          >
+            {lineCount.toLocaleString()}줄 / {LINE_LIMIT.toLocaleString()}줄
+          </Text>
+        ) : null}
       </View>
     </View>
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Styles                                                             */
+/* ------------------------------------------------------------------ */
+
 const styles = StyleSheet.create({
   root: {
     width: "100%",
   },
+
+  /* ---- Floating card shell ---- */
   shell: {
-    backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 16,
-    paddingVertical: 10,
-    gap: 10,
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
+    borderRadius: MobileTokens.radius.input, // 24
+    paddingVertical: MobileTokens.space.sm, // 8
+    gap: MobileTokens.space.xs, // 4
   },
-  shellDark: {
-    backgroundColor: "#1e1e1e",
-    borderColor: "rgba(255,255,255,0.08)",
+
+  /* ---- DEEP chip ---- */
+  chipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: MobileTokens.space.xxs, // 2
+    paddingBottom: MobileTokens.space.xxs,
   },
-  shellFocused: {
-    borderColor: "#0f172a",
+  deepChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: MobileTokens.radius.sm, // 8
+    paddingHorizontal: MobileTokens.space.sm, // 8
+    height: 28,
+    gap: MobileTokens.space.xs, // 4
   },
-  shellFocusedDark: {
-    borderColor: "rgba(255,255,255,0.3)",
+  deepChipText: {
+    fontSize: MobileTokens.font.xs, // 11
+    fontWeight: MobileTokens.weight.semibold,
+    letterSpacing: 0.5,
   },
-  thinkChipRow: {
-    alignItems: "flex-start",
-    paddingTop: 2,
+  deepChipDismiss: {
+    fontSize: MobileTokens.font.sm, // 13
+    fontWeight: MobileTokens.weight.medium,
+    opacity: 0.7,
   },
-  thinkChip: {
-    borderRadius: 999,
-    backgroundColor: "#0f172a",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  thinkChipText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
+
+  /* ---- Attachments ---- */
   attachmentsWrap: {
-    paddingTop: 4,
+    paddingTop: MobileTokens.space.xs, // 4
   },
+
+  /* ---- Input row ---- */
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 10,
+    gap: MobileTokens.space.sm, // 8
   },
-  attachBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+
+  /* Plus button */
+  plusBtn: {
+    width: BTN_SIZE,
+    height: BTN_SIZE,
+    borderRadius: BTN_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#e2e8f0",
+    marginBottom: (INPUT_MIN_HEIGHT - BTN_SIZE) / 2, // vertically center with 1-line input
   },
-  attachBtnDark: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-  },
-  attachText: {
+  plusIcon: {
     fontSize: 20,
-    color: "#0f172a",
+    fontWeight: MobileTokens.weight.medium,
     lineHeight: 22,
+    marginTop: -1,
   },
-  attachTextDark: {
-    color: "#f5f5f5",
-  },
+
+  /* TextInput */
   input: {
     flex: 1,
-    maxHeight: 200,
-    minHeight: 52,
-    fontSize: 15,
-    color: "#0f172a",
-    paddingHorizontal: 6,
-    paddingTop: 8,
-    paddingBottom: 8,
+    minHeight: INPUT_MIN_HEIGHT,
+    maxHeight: INPUT_MAX_HEIGHT,
+    fontSize: MobileTokens.font.md, // 15
+    paddingHorizontal: MobileTokens.space.xs, // 4
+    paddingTop: Platform.select({ ios: 14, android: 10 }),
+    paddingBottom: Platform.select({ ios: 14, android: 10 }),
+    textAlignVertical: "center",
   },
-  inputDark: {
-    color: "#f5f5f5",
+
+  /* Right button wrapper */
+  rightBtnWrap: {
+    justifyContent: "flex-end",
+    marginBottom: (INPUT_MIN_HEIGHT - BTN_SIZE) / 2,
   },
-  sendWrap: {
-    position: "absolute",
-    right: 0,
-  },
-  sendCenter: {
-    top: "50%",
-    marginTop: -16,
-  },
-  sendBottom: {
-    bottom: 0,
-  },
-  actionBtn: {
-    height: 36,
-    width: 64,
-    borderRadius: 18,
-    backgroundColor: "#0f172a",
+
+  /* Send button */
+  sendBtn: {
+    width: BTN_SIZE,
+    height: BTN_SIZE,
+    borderRadius: BTN_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
   },
-  actionBtnDisabled: {
-    backgroundColor: "#94a3b8",
-  },
-  actionText: {
+  sendArrow: {
     color: "#ffffff",
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: MobileTokens.weight.bold,
+    lineHeight: 18,
+    marginTop: -1,
+  },
+
+  /* Stop button */
+  stopBtn: {
+    width: BTN_SIZE,
+    height: BTN_SIZE,
+    borderRadius: BTN_SIZE / 2,
+    backgroundColor: "#dc2626",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stopIcon: {
+    width: STOP_ICON_SIZE,
+    height: STOP_ICON_SIZE,
+    borderRadius: 2,
+    backgroundColor: "#ffffff",
+  },
+
+  /* Spacer when no button shown */
+  rightSpacer: {
+    width: BTN_SIZE,
+    height: BTN_SIZE,
+  },
+
+  /* Line limit warning */
+  lineWarning: {
+    fontSize: MobileTokens.font.xs, // 11
+    textAlign: "right",
+    paddingRight: MobileTokens.space.xs,
+    paddingBottom: MobileTokens.space.xxs,
   },
 });

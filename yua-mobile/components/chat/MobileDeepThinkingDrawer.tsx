@@ -313,7 +313,7 @@ export default function MobileDeepThinkingDrawer({
             { color: colors.textPrimary },
           ]}
         >
-          {(contract.ui as any)?.drawerSectionLabel ?? "\uC798 \uC0DD\uAC01\uD558\uAE30"}
+          {(contract.ui as any)?.drawerSectionLabel ?? "잘 생각하기"}
         </Text>
 
         {/* Chunks */}
@@ -338,7 +338,7 @@ export default function MobileDeepThinkingDrawer({
                 { color: colors.summariesTitleColor },
               ]}
             >
-              {"\uC694\uC57D"}
+              {"요약"}
             </Text>
             {effectiveSummaries.map((summary) => (
               <View key={summary.id} style={styles.summaryCard}>
@@ -377,7 +377,7 @@ export default function MobileDeepThinkingDrawer({
                 { color: colors.finalizedTextColor },
               ]}
             >
-              {"\uC0DD\uAC01 \uC644\uB8CC"}
+              {"생각 완료"}
             </Text>
           </View>
         ) : null}

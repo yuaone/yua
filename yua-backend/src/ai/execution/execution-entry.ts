@@ -110,6 +110,8 @@ export async function executePlan(
     thinkingProfile?: "FAST" | "NORMAL" | "DEEP";
     outmode?: OUTMODE;
     stream?: boolean;
+    path?: string;
+    forceSearch?: boolean;
     visionBudget?: {
       allowOCR?: boolean;
       allowZoom?: boolean;
@@ -372,6 +374,8 @@ return {
         thinkingProfile: ctx.thinkingProfile as ChatRuntimeInput["thinkingProfile"],
         outmode: ctx.outmode,
         stream: ctx.stream as boolean,
+        path: ctx.path,
+        forceSearch: ctx.forceSearch,
       }
     : undefined;
 

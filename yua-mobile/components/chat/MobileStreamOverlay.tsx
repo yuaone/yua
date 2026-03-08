@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "@/hooks/useTheme";
 
 import MobileTypingIndicator from "@/components/chat/MobileTypingIndicator";
+import ThinkingCollapsible from "@/components/chat/ThinkingCollapsible";
 import {
   useMobileStreamSessionStore,
   type MobileStreamSession,
 } from "@/store/useMobileStreamSessionStore";
 import type { MobileChatMessageMeta } from "@/features/chat/model/chat-message.types";
 import { ActivityKind } from "yua-shared/stream/activity";
+import { getThinkingContract } from "yua-shared/types/thinkingProfile";
 
 type Props = {
   assistantMeta?: MobileChatMessageMeta | null;
@@ -65,15 +67,6 @@ function pickInlineSummary(
   return sessionInline?.inline ?? sessionInline?.body ?? null;
 }
 
-function formatElapsed(ms: number): string {
-  if (ms <= 0) return "";
-  const sec = Math.floor(ms / 1000);
-  if (sec < 60) return `${sec}s`;
-  const min = Math.floor(sec / 60);
-  const rem = sec % 60;
-  return `${min}m ${rem}s`;
-}
-
 /* ==============================
    Component
 ============================== */
@@ -110,10 +103,6 @@ export default function MobileStreamOverlay({
   const effectiveChunks = session.chunks;
   const effectiveSummaries = session.summaries;
 
-  const hasReasoningBlocks = effectiveChunks.some((c) =>
-    isReasoningKind(c.kind),
-  );
-
   const metaHasHistory =
     Boolean(assistantMeta?.thinking) &&
     (assistantMeta?.thinking?.thinkingProfile === "DEEP" ||
@@ -145,52 +134,56 @@ export default function MobileStreamOverlay({
       : 0;
 
   /* ---------- Typing Indicator (min 600ms) ---------- */
-  const shouldShowTyping =
-    session.streaming && !hasText && !session.finalized && !isDeep;
+  const contract = getThinkingContract(metaProfile ?? "NORMAL");
+  // typing 시작 조건: contract 허용 + finalized 아님 + DEEP 아님 (hasText는 제외 — grace period 보장)
+  const shouldStartTyping =
+    contract.ui.typingEnabled &&
+    !session.finalized && !isDeep;
 
   const [typingExpired, setTypingExpired] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingStartedRef = useRef(false);
 
   useEffect(() => {
-    if (shouldShowTyping) {
+    if (shouldStartTyping && !hasText && !typingStartedRef.current) {
+      // 스트리밍 시작, 아직 텍스트 없음 → 타이핑 시작 (1회만)
+      typingStartedRef.current = true;
       setTypingExpired(false);
       typingTimerRef.current = setTimeout(() => setTypingExpired(true), 600);
-    } else {
+    } else if (!shouldStartTyping) {
+      // finalized 또는 deep → 전부 리셋
+      typingStartedRef.current = false;
       setTypingExpired(false);
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       typingTimerRef.current = null;
     }
+    // hasText가 true로 바뀌어도 timer는 유지 (grace period 보장)
     return () => {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       typingTimerRef.current = null;
     };
-  }, [shouldShowTyping]);
+  }, [shouldStartTyping, hasText]);
 
+  // typing은 grace period(600ms) 끝나면 숨기되, 실제 콘텐츠 준비됐을 때만
   const typingVisible =
-    shouldShowTyping && !(typingExpired && canShowPanel);
+    typingStartedRef.current &&
+    !session.finalized &&
+    !isDeep &&
+    !(typingExpired && (hasText || effectiveChunks.length > 0));
 
   /* ---------- Panel Visibility ---------- */
-  const shouldHideInline = hasText && !hasReasoningBlocks;
+  // NORMAL/FAST mode: hide panel once answer text starts appearing
+  const hideNonDeepPanel = !isDeep && hasText;
 
   /* ---------- Gate ---------- */
   if (!shouldRender) return null;
 
   const hasSlotContent =
     typingVisible ||
-    canShowPanel ||
+    (canShowPanel && !hideNonDeepPanel) ||
     (!canShowPanel && !!inline && !hasText);
 
   if (!hasSlotContent) return null;
-
-  /* ---------- Profile Label ---------- */
-  const profileLabel =
-    metaProfile === "DEEP"
-      ? "Deep thinking"
-      : metaProfile === "FAST"
-        ? "Fast"
-        : "Thinking";
-
-  const elapsedLabel = formatElapsed(thinkingElapsedMs);
 
   /* ---------- Summaries for panel ---------- */
   const panelSummaries = effectiveSummaries.length > 0
@@ -201,69 +194,21 @@ export default function MobileStreamOverlay({
         status: "DONE" as const,
       }));
 
-  const primarySummary = session.primarySummaryId
-    ? panelSummaries.find((s) => s.id === session.primarySummaryId)
-    : null;
-
   return (
-    <View style={[styles.wrap, { backgroundColor: colors.thinkPanelBg, borderColor: colors.thinkPanelBorder }]}>
+    <View style={styles.wrap}>
       {/* Typing Indicator */}
       {typingVisible && <MobileTypingIndicator />}
 
-      {/* Thinking Panel (inline) */}
-      {!typingVisible && canShowPanel && (
-        <Pressable
-          style={styles.panelContent}
-          onPress={isDeep && onOpenDrawer ? onOpenDrawer : undefined}
-          disabled={!isDeep || !onOpenDrawer}
-        >
-          <View style={styles.panelHeader}>
-            <Text
-              style={[
-                styles.panelLabel,
-                { color: colors.thinkPanelLabel },
-              ]}
-            >
-              {profileLabel}
-            </Text>
-            {elapsedLabel ? (
-              <Text style={styles.panelElapsed}>{elapsedLabel}</Text>
-            ) : null}
-          </View>
-
-          {/* Inline summary */}
-          {!shouldHideInline && inline ? (
-            <Text
-              style={[
-                styles.panelInline,
-                { color: colors.thinkPanelInline },
-              ]}
-              numberOfLines={3}
-            >
-              {inline}
-            </Text>
-          ) : null}
-
-          {/* Primary summary */}
-          {primarySummary?.summary ? (
-            <Text
-              style={[
-                styles.panelSummary,
-                { color: colors.thinkPanelSummary },
-              ]}
-              numberOfLines={4}
-            >
-              {primarySummary.summary}
-            </Text>
-          ) : null}
-
-          {/* DEEP: tap hint */}
-          {isDeep && onOpenDrawer && (
-            <Text style={styles.panelHint}>
-              {"\uD0ED\uD558\uC5EC \uC0AC\uACE0 \uACFC\uC815 \uBCF4\uAE30"}
-            </Text>
-          )}
-        </Pressable>
+      {/* ThinkingCollapsible — replaces inline panel + drawer hint */}
+      {!typingVisible && canShowPanel && !hideNonDeepPanel && (
+        <ThinkingCollapsible
+          chunks={effectiveChunks}
+          summaries={panelSummaries}
+          profile={metaProfile ?? null}
+          elapsed={thinkingElapsedMs}
+          finalized={session.finalized}
+          hasText={hasText}
+        />
       )}
 
       {/* Inline fallback (no panel, but has inline and no answer text yet) */}
@@ -283,78 +228,12 @@ export default function MobileStreamOverlay({
 
 const styles = StyleSheet.create({
   wrap: {
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
     marginBottom: 8,
-    minHeight: 40,
-  },
-  wrapLight: {
-    backgroundColor: "#f0f4ff",
-    borderWidth: 1,
-    borderColor: "#dbe4ff",
-  },
-  wrapDark: {
-    backgroundColor: "rgba(99,102,241,0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(99,102,241,0.2)",
-  },
-  panelContent: {
-    gap: 6,
-  },
-  panelHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  panelLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  panelLabelLight: {
-    color: "#1e3a8a",
-  },
-  panelLabelDark: {
-    color: "#93c5fd",
-  },
-  panelElapsed: {
-    fontSize: 11,
-    color: "#6b7280",
-  },
-  panelInline: {
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  panelInlineLight: {
-    color: "#334155",
-  },
-  panelInlineDark: {
-    color: "#d1d5db",
-  },
-  panelSummary: {
-    fontSize: 13,
-    lineHeight: 19,
-    fontStyle: "italic",
-  },
-  panelSummaryLight: {
-    color: "#475569",
-  },
-  panelSummaryDark: {
-    color: "#9ca3af",
-  },
-  panelHint: {
-    fontSize: 11,
-    color: "#6b7280",
-    marginTop: 4,
   },
   inlineFallback: {
     fontSize: 14,
     fontWeight: "500",
-  },
-  inlineFallbackLight: {
-    color: "#1f2937",
-  },
-  inlineFallbackDark: {
-    color: "#d1d5db",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
 });

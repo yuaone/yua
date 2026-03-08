@@ -12,13 +12,11 @@ import { emojiVariants } from "@/lib/thoughtStageEmojiVariants";
 import type { ThoughtStage } from "@/lib/thoughtStage";
 import dynamic from "next/dynamic";
  const MermaidRenderer = dynamic(
-   () => import("./MermaidRenderer"),
+   () => import("./MermaidRenderer").then(m => m.default),
    { ssr: false }
- );
+ ) as React.ComponentType<{ code: string }>;
 import { emojiMap } from "@/lib/thoughtStage";
-    /* =========================
-      Math Detection
-    ========================= */
+
 
     /* =========================
       Normalize Math
@@ -186,8 +184,8 @@ if (
 
 function hashToInt(s: string) {
   let h = 0;
-  for (let i = 0; i < s.length; i++) {
-    h = (h * 31 + s.charCodeAt(i)) | 0;
+  for (const ch of s) {
+    h = (h * 31 + (ch.codePointAt(0) ?? 0)) | 0;
   }
   return Math.abs(h);
 }
@@ -1839,8 +1837,14 @@ h3({ node, children }) {
     </h3>
   );
 },
-        code({ inline, className, children }) {
-          const isInline = inline === true;
+        code({ inline, className, children, node, ...rest }) {
+          // react-markdown v8: `inline` prop may be true/undefined/missing.
+          // Fallback: if there is no className (no language-xxx) AND the content
+          // has no newlines, treat as inline code.
+          const hasLang = typeof className === "string" && className.startsWith("language-");
+          const isInline =
+            inline === true ||
+            (!hasLang && !String(children).includes("\n"));
   if (process.env.NODE_ENV === "development") {
     console.log("[MD][RM_CODE_RENDER]", {
       inline: isInline,
@@ -1849,10 +1853,10 @@ h3({ node, children }) {
     });
   }
           if (isInline) {
+            // No extra Tailwind classes — rely on globals.css
+            // `.chat-markdown code:not(pre code)` which handles light+dark.
             return (
-              <code className="rounded bg-gray-100 px-1.5 py-[2px] text-[15.5px] font-mono font-medium">
-                {children}
-              </code>
+              <code>{children}</code>
             );
           }
 
@@ -1864,7 +1868,7 @@ h3({ node, children }) {
             />
           );
         },
-      }), []);
+     }), [stageEmoji, rhythm]);
 
       return (
         <div className="chat-markdown">
@@ -1906,7 +1910,7 @@ if (b.kind === "code") {
   if (streaming) {
     return (
       <CodeBlock
-        key={b.id}
+        key={streaming ? `${b.id}-stream` : `${b.id}-final`}
         className="language-mermaid"
         value={full}
         streaming={codeStreaming}

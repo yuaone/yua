@@ -1702,21 +1702,23 @@ if (sanitizedMessage.length > LARGE_INPUT_THRESHOLD) {
   // 🔒 SSOT: REMEMBER는 정보성/선호성/명시적 저장 의도에서만 허용
   const detectedMemoryIntent = detectMemoryIntent(sanitizedMessage);
 
-  const isStorableIntent =
-    /(나는 .*이다|나는 .*합니다|앞으로 .*할게|내 스타일은|내 선호는)/.test(
-      sanitizedMessage
-    ) ||
-    /(I am .*|I prefer .*|My style is|From now on I will)/i.test(
-      sanitizedMessage
-    );
-    
   if (
     memoryIntent === "NONE" &&
     detectedMemoryIntent === "REMEMBER" &&
-    isStorableIntent &&
     !hasImage
   ) {
     memoryIntent = "REMEMBER";
+  }
+
+  // 🔒 Implicit memory detection fallback
+  if (memoryIntent === "NONE") {
+    try {
+      const { detectImplicitMemory } = await import("../memory/memory-implicit-detector.js");
+      const implicitResult = detectImplicitMemory(sanitizedMessage);
+      if (implicitResult.category !== "NONE" && implicitResult.confidence >= 0.55) {
+        memoryIntent = "IMPLICIT";
+      }
+    } catch {}
   }
 
           /* ----------------------------------

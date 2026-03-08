@@ -23,10 +23,60 @@ pnpm --filter yua-mobile ios         # expo start --ios
 pnpm --filter yua-mobile lint        # expo lint
 ```
 
+## 빌드 방법 (SSOT)
+
+### Expo Go (빠른 테스트용)
+```bash
+cd yua-mobile
+npx expo start -c                    # 캐시 클리어 + 시작
+```
+- 네이티브 모듈 불가 (Google Sign-In 등)
+- 이메일 로그인/UI 테스트에만 사용
+
+### Development Build (네이티브 모듈 포함)
+```bash
+# 1. 네이티브 코드 생성 (android/, ios/ 디렉토리)
+npx expo prebuild --clean
+
+# 2-A. 로컬 빌드 (Android SDK 필요 — 서버에는 없음)
+npx expo run:android
+
+# 2-B. EAS 클라우드 빌드 (서버에서 가능, 추천)
+eas build --profile development --platform android
+
+# 3. 빌드 완료 후 폰에 APK 설치, 그 다음:
+npx expo start --dev-client
+```
+- Google Sign-In, 카메라 등 네이티브 모듈 필요 시 필수
+- `expo run:android`는 로컬에 Android SDK 필요 (서버 환경에서는 불가)
+- EAS Build는 클라우드에서 빌드 → APK 다운로드 → 폰 설치
+
+### Production Build (배포용)
+```bash
+eas build --profile production --platform android
+eas build --profile production --platform ios
+```
+
+### 주의사항
+- 서버(yua-ai)에는 Android SDK 미설치 → `expo run:android` 불가, EAS Build 사용
+- 네이티브 의존성 추가/변경 시 반드시 `npx expo prebuild --clean` 후 재빌드
+- `app.json` plugins 변경 시에도 prebuild 필요
+- EAS Project ID: `4868ce71-a1b7-468d-91c2-ed3e506dd53e` (owner: dae0710)
+
+## Google Sign-In (SSOT)
+- 라이브러리: `@react-native-google-signin/google-signin` (네이티브, Dev Build 필수)
+- `expo-auth-session/providers/google`은 사용하지 않음 (Expo Go + OAuth 조합 불가)
+- GCP 프로젝트: `yua-ai-console` (526086000910)
+- Web Client ID: Firebase auto-created (`526086000910-41pdrokskatin1c53ltisqp3grcr4d7h`)
+- Android Client ID: Firebase auto-created (`526086000910-dollq64ja1m7jt3jo5g5i8ocvom796fn`)
+- iOS Client ID: Firebase auto-created (`526086000910-fab8lu2u4nv3236js4hlqvog8q9fukim`)
+- `GoogleSignin.configure({ webClientId })` → `signIn()` → `idToken` → `signInWithGoogleToken()`
+- Expo Go에서는 Google 로그인 불가, "Development Build 필요" 안내 표시
+
 ## 앱 설정 (app.json)
 - Bundle ID: `com.yuaone.yua` (iOS + Android)
-- New Architecture: enabled
-- React Compiler: enabled
+- New Architecture: disabled (호환성 이슈로 비활성화)
+- React Compiler: disabled (reanimated 호환성)
 - Typed Routes: enabled
 - EAS Project ID: `4868ce71-a1b7-468d-91c2-ed3e506dd53e`
 

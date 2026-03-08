@@ -62,15 +62,17 @@ export function useMobileSidebarData() {
 
   const loadThreads = useCallback(
     async (force = false) => {
-      if (!force && threads.length > 0) {
+      const currentThreads = useMobileSidebarStore.getState().threads;
+      if (!force && currentThreads.length > 0) {
         return;
       }
 
       setLoadingThreads(true);
       try {
         const fetched = await fetchSidebarThreads();
+        const latest = useMobileSidebarStore.getState().threads;
         const serverById = new Map(fetched.map((thread) => [thread.id, thread]));
-        const merged = threads.map((localThread) => serverById.get(localThread.id) ?? localThread);
+        const merged = latest.map((localThread) => serverById.get(localThread.id) ?? localThread);
 
         fetched.forEach((serverThread) => {
           if (!merged.some((thread) => thread.id === serverThread.id)) {
@@ -83,7 +85,7 @@ export function useMobileSidebarData() {
         setLoadingThreads(false);
       }
     },
-    [setLoadingThreads, setThreads, threads]
+    [setLoadingThreads, setThreads]
   );
 
   const createNewThread = useCallback(

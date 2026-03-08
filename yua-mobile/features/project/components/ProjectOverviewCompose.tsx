@@ -1,18 +1,23 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { useTheme } from "@/hooks/useTheme";
+
 type ProjectOverviewComposeProps = {
   onSubmit: (value: string) => Promise<void>;
 };
 
 export default function ProjectOverviewCompose({ onSubmit }: ProjectOverviewComposeProps) {
+  const { colors } = useTheme();
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
+    const trimmed = value.trim();
+    if (!trimmed || loading) return;
     setLoading(true);
     try {
-      await onSubmit(value);
+      await onSubmit(trimmed);
       setValue("");
     } finally {
       setLoading(false);
@@ -24,12 +29,31 @@ export default function ProjectOverviewCompose({ onSubmit }: ProjectOverviewComp
       <TextInput
         value={value}
         onChangeText={setValue}
-        style={styles.input}
-        placeholder="프로젝트에 첫 질문을 입력하세요"
+        style={[
+          styles.input,
+          {
+            borderColor: colors.inputBorder,
+            color: colors.inputText,
+            backgroundColor: colors.inputShellBg,
+          },
+        ]}
+        placeholder={"\uD504\uB85C\uC81D\uD2B8\uC5D0 \uCCAB \uC9C8\uBB38\uC744 \uC785\uB825\uD558\uC138\uC694"}
+        placeholderTextColor={colors.inputPlaceholder}
         multiline
       />
-      <Pressable style={[styles.button, loading ? styles.buttonDisabled : null]} onPress={submit}>
-        <Text style={styles.buttonText}>{loading ? "Creating..." : "Create Thread"}</Text>
+      <Pressable
+        style={({ pressed }) => [
+          styles.button,
+          { backgroundColor: colors.buttonBg },
+          loading && styles.buttonDisabled,
+          pressed && { opacity: 0.85 },
+        ]}
+        onPress={submit}
+        disabled={loading}
+      >
+        <Text style={[styles.buttonText, { color: colors.buttonText }]}>
+          {loading ? "\uC0DD\uC131 \uC911..." : "\uC0C8 \uB300\uD654 \uC2DC\uC791"}
+        </Text>
       </Pressable>
     </View>
   );
@@ -40,21 +64,17 @@ const styles = StyleSheet.create({
   input: {
     minHeight: 80,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: "#0f172a",
-    backgroundColor: "#fff",
   },
   button: {
     height: 42,
     borderRadius: 12,
-    backgroundColor: "#0f172a",
     alignItems: "center",
     justifyContent: "center",
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  buttonText: { fontWeight: "600", fontSize: 14 },
 });

@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useTheme } from "@/hooks/useTheme";
 import type { MobileThread } from "@/types/sidebar";
 
 type MobileThreadListProps = {
@@ -13,8 +14,10 @@ export default function MobileThreadList({
   activeThreadId,
   onSelectThread,
 }: MobileThreadListProps) {
+  const { colors } = useTheme();
+
   if (threads.length === 0) {
-    return <Text style={styles.empty}>No threads</Text>;
+    return <Text style={[styles.empty, { color: colors.textMuted }]}>No threads</Text>;
   }
 
   return (
@@ -22,16 +25,30 @@ export default function MobileThreadList({
       {threads.map((thread) => (
         <Pressable
           key={thread.id}
-          style={[styles.item, activeThreadId === thread.id ? styles.itemActive : null]}
+          style={({ pressed }) => [
+            styles.item,
+            { borderColor: colors.line, backgroundColor: colors.surfacePanel },
+            activeThreadId === thread.id && {
+              borderColor: colors.textPrimary,
+              backgroundColor: colors.wash,
+            },
+            pressed && { opacity: 0.7 },
+          ]}
           onPress={() => onSelectThread(thread.id)}
         >
           <View style={styles.row}>
-            <Text numberOfLines={1} style={styles.title}>
+            <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>
               {thread.title}
             </Text>
-            {thread.pinned ? <Text style={styles.badge}>PIN</Text> : null}
+            {thread.pinned ? (
+              <Text style={[styles.badge, { color: colors.linkColor, backgroundColor: colors.wash }]}>
+                PIN
+              </Text>
+            ) : null}
           </View>
-          <Text style={styles.sub}>{thread.projectId ? `Project ${thread.projectId}` : "General"}</Text>
+          <Text style={[styles.sub, { color: colors.textMuted }]}>
+            {thread.projectId ? `Project ${thread.projectId}` : "General"}
+          </Text>
         </Pressable>
       ))}
     </View>
@@ -42,14 +59,8 @@ const styles = StyleSheet.create({
   wrap: { gap: 8 },
   item: {
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     borderRadius: 10,
     padding: 10,
-    backgroundColor: "#fff",
-  },
-  itemActive: {
-    borderColor: "#0f172a",
-    backgroundColor: "#f8fafc",
   },
   row: {
     flexDirection: "row",
@@ -57,16 +68,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
   },
-  title: { color: "#0f172a", fontSize: 14, fontWeight: "600", flex: 1 },
-  sub: { color: "#64748b", fontSize: 11, marginTop: 4 },
+  title: { fontSize: 14, fontWeight: "600", flex: 1 },
+  sub: { fontSize: 11, marginTop: 4 },
   badge: {
-    color: "#1d4ed8",
-    backgroundColor: "#dbeafe",
     fontSize: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 999,
     overflow: "hidden",
   },
-  empty: { color: "#64748b", fontSize: 13 },
+  empty: { fontSize: 13 },
 });

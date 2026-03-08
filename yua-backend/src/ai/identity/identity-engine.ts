@@ -5,7 +5,8 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { query } from "../../db/db-wrapper";
 
-const JWT_SECRET = process.env.JWT_SECRET || "yua-secret";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error("[FATAL] JWT_SECRET env var is required");
 
 export interface JWTPayload {
   userId: string;

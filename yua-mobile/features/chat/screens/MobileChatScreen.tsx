@@ -8,8 +8,9 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+
 import type { AttachmentMeta } from "yua-shared/chat/attachment-types";
 
 import ChatInput from "@/components/chat/ChatInput";
@@ -20,9 +21,8 @@ import {
   uploadAttachments,
   type PendingAttachment,
 } from "@/lib/api/upload.api";
-import MobileTopBar from "@/components/layout/MobileTopBar";
 import MobileTopPanelHost from "@/components/layout/MobileTopPanelHost";
-import { useSidebar } from "@/components/layout/SidebarContext";
+import MobileStatusBottomSheet from "@/components/layout/MobileStatusBottomSheet";
 import { useMobileAuth } from "@/contexts/MobileAuthContext";
 import { useMobileChatController } from "@/features/chat/hooks/useMobileChatController";
 import { useKeyboardDock } from "@/hooks/useKeyboardDock";
@@ -46,8 +46,8 @@ function resolveThreadId(raw: string | string[] | undefined): number | null {
 
 export default function MobileChatScreen() {
   const { state, signOutUser } = useMobileAuth();
-  const { toggleSidebar } = useSidebar();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { threadId: routeThreadParam, messageId: routeMessageParam } = useLocalSearchParams<{
     threadId?: string;
     messageId?: string;
@@ -55,7 +55,7 @@ export default function MobileChatScreen() {
   const routeThreadId = resolveThreadId(routeThreadParam);
   const routeMessageId = Array.isArray(routeMessageParam) ? routeMessageParam[0] : routeMessageParam;
 
-  const { activePanel, visible, close, open, toggle } = useTopPanel();
+  const { activePanel, visible, close, open } = useTopPanel();
   const { dockBottom, safeBottom } = useKeyboardDock();
   const { width } = useWindowDimensions();
   const dockInset = width >= 768 ? 24 : 10;
@@ -63,25 +63,24 @@ export default function MobileChatScreen() {
   const [photoAssets, setPhotoAssets] = useState<MobilePhotoAsset[]>([]);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const routeRetryRef = useRef(0);
+  const lastSyncedRouteRef = useRef<number | null>(null);
   const pendingFocusRef = useRef<string | null>(null);
   const focusRetryRef = useRef(0);
   const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusLoadingRef = useRef(false);
   const [scrollTargetId, setScrollTargetId] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [statusOpen, setStatusOpen] = useState(false);
 
-  const {
-    mode,
-    setMode,
-    projects,
-    threads,
-    activeProjectId,
-    activeThreadId,
-    loadingProjects,
-    loadingThreads,
-    setActiveContext,
-    touchThread,
-  } = useMobileSidebarStore();
+  const mode = useMobileSidebarStore((s) => s.mode);
+  const setMode = useMobileSidebarStore((s) => s.setMode);
+  const projects = useMobileSidebarStore((s) => s.projects);
+  const activeProjectId = useMobileSidebarStore((s) => s.activeProjectId);
+  const activeThreadId = useMobileSidebarStore((s) => s.activeThreadId);
+  const loadingProjects = useMobileSidebarStore((s) => s.loadingProjects);
+  const loadingThreads = useMobileSidebarStore((s) => s.loadingThreads);
+  const setActiveContext = useMobileSidebarStore((s) => s.setActiveContext);
+  const touchThread = useMobileSidebarStore((s) => s.touchThread);
   const visibleThreads = useVisibleThreads();
   const { loadProjects, loadThreads, createNewThread } = useMobileSidebarData();
 
@@ -125,10 +124,6 @@ export default function MobileChatScreen() {
     router.replace("/auth");
   };
 
-  const loadSidebar = useCallback(async () => {
-    await Promise.all([loadProjects(), loadThreads()]);
-  }, [loadProjects, loadThreads]);
-
   const loadPhotoAssets = useCallback(async () => {
     const assets = await fetchPhotoLibraryAssets({ scope: "user" });
     setPhotoAssets(assets);
@@ -144,9 +139,7 @@ export default function MobileChatScreen() {
     }
   }, [state]);
 
-  useEffect(() => {
-    void loadSidebar();
-  }, [loadSidebar]);
+  // Thread loading is handled by (authed)/_layout.tsx — no duplicate loading here
 
   const refreshingSidebar = loadingProjects || loadingThreads;
   const onRefreshSidebar = useCallback(async () => {
@@ -160,18 +153,21 @@ export default function MobileChatScreen() {
 
   useEffect(() => {
     if (routeThreadId == null) return;
+    if (lastSyncedRouteRef.current === routeThreadId) return;
 
-    const thread = threads.find((item) => item.id === routeThreadId);
+    const thread = useMobileSidebarStore.getState().threads.find((item) => item.id === routeThreadId);
     if (!thread) return;
 
+    lastSyncedRouteRef.current = routeThreadId;
     setActiveContext(thread.projectId, thread.id);
     touchThread(thread.id);
-  }, [routeThreadId, setActiveContext, threads, touchThread]);
+  }, [routeThreadId, setActiveContext, touchThread]);
 
   useEffect(() => {
     if (routeThreadId == null) return;
     if (loadingThreads) return;
-    const thread = threads.find((item) => item.id === routeThreadId);
+    const currentThreads = useMobileSidebarStore.getState().threads;
+    const thread = currentThreads.find((item) => item.id === routeThreadId);
     if (thread) {
       routeRetryRef.current = 0;
       return;
@@ -187,7 +183,7 @@ export default function MobileChatScreen() {
     routeRetryRef.current = 0;
     setActiveContext(null, null);
     router.replace("/(authed)/chat" as any);
-  }, [loadThreads, loadingThreads, routeThreadId, setActiveContext, threads]);
+  }, [loadThreads, loadingThreads, routeThreadId, setActiveContext]);
 
   useEffect(() => {
     if (!routeMessageId) return;
@@ -226,6 +222,7 @@ export default function MobileChatScreen() {
 
   useEffect(() => {
     if (routeThreadId != null) return;
+    lastSyncedRouteRef.current = null;
     setActiveContext(null, null);
   }, [routeThreadId, setActiveContext]);
 
@@ -250,11 +247,18 @@ export default function MobileChatScreen() {
     }
   }, [streamState.kind]);
 
+  const userDismissedStatusRef = useRef(false);
+
+  // Auto-open status sheet when activity starts, but respect user dismissal
   useEffect(() => {
-    if (activePanel != null) return;
-    if (streamState.activity.length === 0) return;
-    open("activity");
-  }, [activePanel, open, streamState.activity.length]);
+    if (streamState.activity.length === 0) {
+      // Stream ended or reset — allow auto-open on next stream
+      userDismissedStatusRef.current = false;
+      return;
+    }
+    if (statusOpen || userDismissedStatusRef.current) return;
+    setStatusOpen(true);
+  }, [statusOpen, streamState.activity.length]);
 
   useEffect(() => {
     if (visible && plusOpen) {
@@ -262,15 +266,8 @@ export default function MobileChatScreen() {
     }
   }, [plusOpen, visible]);
 
-  const swipeGesture = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-20, 20])
-    .onEnd(() => {
-      // Sidebar swipe is now handled by MobileAppShell drawer
-    });
-
   const onSelectThread = (threadId: number) => {
-    const thread = threads.find((item) => item.id === threadId);
+    const thread = useMobileSidebarStore.getState().threads.find((item) => item.id === threadId);
     touchThread(threadId);
     if (thread) {
       setActiveContext(thread.projectId, threadId);
@@ -348,20 +345,6 @@ export default function MobileChatScreen() {
     // Bottom sheet opens automatically via activeThinkMessage.meta.drawerOpen
   };
 
-  const onPressThink = () => {
-    if (activeThinkMessage) {
-      closeThinkDrawer();
-      return;
-    }
-    // For non-DEEP messages, fallback to TopSlidePanel
-    toggle("think");
-  };
-
-  const title = useMemo(() => {
-    const current = threads.find((item) => item.id === selectedThreadId);
-    return current?.title ?? "Chat";
-  }, [selectedThreadId, threads]);
-
   const handleScrolledToMessage = useCallback((messageId: string) => {
     setHighlightId(messageId);
     pendingFocusRef.current = null;
@@ -391,49 +374,40 @@ export default function MobileChatScreen() {
   }, [messages, selectedThreadId]);
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.surfaceMain }]}>
-      {/* Top Bar */}
-      <MobileTopBar
-        title={title}
-        onPressMenu={toggleSidebar}
-        onPressThink={onPressThink}
-      />
-
+    <View style={[styles.root, { backgroundColor: colors.surfaceMain, paddingTop: insets.top }]}>
       {/* Message List */}
-      <GestureDetector gesture={swipeGesture}>
-        <View style={styles.contentWrap}>
-          {apiError ? (
-            <View style={[styles.errorCard, { borderColor: colors.errorBorder, backgroundColor: colors.errorBg }]}>
-              <Text style={[styles.errorTitle, { color: colors.errorTitleColor }]}>{"\uC694\uCCAD \uC2E4\uD328"}</Text>
-              <Text style={[styles.errorBody, { color: colors.errorBodyColor }]}>{apiError}</Text>
-              <View style={styles.errorActions}>
-                <Pressable
-                  style={styles.errorBtn}
-                  onPress={() => {
-                    setApiError(null);
-                    retryLastSend();
-                  }}
-                >
-                  <Text style={styles.errorBtnText}>재시도</Text>
-                </Pressable>
-                <Pressable style={styles.errorGhost} onPress={() => setApiError(null)}>
-                  <Text style={styles.errorGhostText}>닫기</Text>
-                </Pressable>
-              </View>
+      <View style={styles.contentWrap}>
+        {apiError ? (
+          <View style={[styles.errorCard, { borderColor: colors.errorBorder, backgroundColor: colors.errorBg }]}>
+            <Text style={[styles.errorTitle, { color: colors.errorTitleColor }]}>{"요청 실패"}</Text>
+            <Text style={[styles.errorBody, { color: colors.errorBodyColor }]}>{apiError}</Text>
+            <View style={styles.errorActions}>
+              <Pressable
+                style={styles.errorBtn}
+                onPress={() => {
+                  setApiError(null);
+                  retryLastSend();
+                }}
+              >
+                <Text style={styles.errorBtnText}>재시도</Text>
+              </Pressable>
+              <Pressable style={styles.errorGhost} onPress={() => setApiError(null)}>
+                <Text style={styles.errorGhostText}>닫기</Text>
+              </Pressable>
             </View>
-          ) : null}
-          <MobileChatMessageList
-            messages={messages}
-            bottomInset={106 + safeBottom + dockBottom}
-            onPressThink={onPressThinkFromMessage}
-            onRegenerate={regenerate}
-            targetMessageId={scrollTargetId}
-            highlightedMessageId={highlightId}
-            onScrolledToMessage={handleScrolledToMessage}
-            onScrollFailed={handleScrollFailed}
-          />
-        </View>
-      </GestureDetector>
+          </View>
+        ) : null}
+        <MobileChatMessageList
+          messages={messages}
+          bottomInset={106 + safeBottom + dockBottom}
+          onPressThink={onPressThinkFromMessage}
+          onRegenerate={regenerate}
+          targetMessageId={scrollTargetId}
+          highlightedMessageId={highlightId}
+          onScrolledToMessage={handleScrolledToMessage}
+          onScrollFailed={handleScrollFailed}
+        />
+      </View>
 
       {/* Input Dock */}
       <View
@@ -481,9 +455,6 @@ export default function MobileChatScreen() {
         activePanel={activePanel}
         visible={visible}
         onClose={() => {
-          if (activePanel === "think") {
-            closeThinkDrawer();
-          }
           close();
         }}
         sidebarMode={mode}
@@ -545,6 +516,24 @@ export default function MobileChatScreen() {
             null) as "FAST" | "NORMAL" | "DEEP" | null
         }
       />
+
+      {/* Status Bottom Sheet (replaces top bar activity/think panels) */}
+      <MobileStatusBottomSheet
+        open={statusOpen}
+        onClose={() => { userDismissedStatusRef.current = true; setStatusOpen(false); }}
+        streamStateLabel={streamState.kind}
+        tokenChars={streamState.text.length}
+        traceId={streamSession.traceId ?? streamState.traceId}
+        thinkingProfile={streamSession.thinkingProfile ?? streamState.thinkingProfile ?? null}
+        streamStage={streamSession.stage ?? streamState.stage ?? null}
+        activity={streamState.activity}
+        sessionChunks={streamSession.chunks}
+        sessionSummaries={streamSession.summaries}
+        sessionLabel={streamSession.label}
+        startedAt={streamSession.startedAt}
+        finalizedAt={streamSession.finalizedAt}
+        finalized={streamSession.finalized}
+      />
     </View>
   );
 }
@@ -552,12 +541,6 @@ export default function MobileChatScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-  },
-  rootLight: {
-    backgroundColor: "#ffffff", // --surface-main light
-  },
-  rootDark: {
-    backgroundColor: "#111111", // --surface-main dark
   },
   contentWrap: {
     flex: 1,
@@ -574,9 +557,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#94a3b8",
   },
-  streamingHintTextDark: {
-    color: "#6b7280",
-  },
   disclaimerWrap: {
     marginTop: 4,
     alignItems: "center",
@@ -587,9 +567,6 @@ const styles = StyleSheet.create({
     color: "#9ca3af", // --text-muted light
     textAlign: "center",
   },
-  disclaimerTextDark: {
-    color: "#6b7280", // --text-muted dark
-  },
   errorCard: {
     borderRadius: 14,
     borderWidth: 1,
@@ -599,14 +576,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 10,
   },
-  errorCardDark: {
-    borderColor: "rgba(239,68,68,0.3)",
-    backgroundColor: "rgba(239,68,68,0.1)",
-  },
   errorTitle: { fontSize: 14, fontWeight: "700", color: "#991b1b" },
-  errorTitleDark: { color: "#fca5a5" },
   errorBody: { fontSize: 12, color: "#7f1d1d", marginTop: 4 },
-  errorBodyDark: { color: "#fca5a5" },
   errorActions: { flexDirection: "row", gap: 8, marginTop: 10 },
   errorBtn: {
     backgroundColor: "#991b1b",
@@ -624,4 +595,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   errorGhostText: { color: "#991b1b", fontSize: 12, fontWeight: "700" },
+
 });

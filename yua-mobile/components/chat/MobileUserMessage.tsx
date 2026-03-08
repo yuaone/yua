@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "@/hooks/useTheme";
+import { useAdaptive } from "@/constants/adaptive";
+import { MobileTokens } from "@/constants/tokens";
 
 import MobileAttachmentDisplay from "@/components/chat/MobileAttachmentDisplay";
 import type { MobileChatMessage } from "@/features/chat/model/chat-message.types";
@@ -10,11 +12,14 @@ type MobileUserMessageProps = {
 
 export default function MobileUserMessage({ message }: MobileUserMessageProps) {
   const { colors } = useTheme();
+  const { userBubbleMaxWidth, width: screenWidth } = useAdaptive();
+
+  const bubbleMaxWidth = Math.round(screenWidth * userBubbleMaxWidth);
 
   return (
     <View style={styles.wrap}>
       {message.attachments?.length ? (
-        <View style={styles.attachmentWrap}>
+        <View style={[styles.attachmentWrap, { maxWidth: bubbleMaxWidth }]}>
           <MobileAttachmentDisplay
             attachments={message.attachments}
             placement="user"
@@ -24,15 +29,13 @@ export default function MobileUserMessage({ message }: MobileUserMessageProps) {
       <View
         style={[
           styles.bubble,
-          { backgroundColor: colors.userBubbleBg },
+          {
+            backgroundColor: colors.buttonBg,
+            maxWidth: bubbleMaxWidth,
+          },
         ]}
       >
-        <Text
-          style={[
-            styles.text,
-            { color: colors.userBubbleText },
-          ]}
-        >
+        <Text style={[styles.text, { color: colors.buttonText }]}>
           {message.content}
         </Text>
       </View>
@@ -43,33 +46,23 @@ export default function MobileUserMessage({ message }: MobileUserMessageProps) {
 const styles = StyleSheet.create({
   wrap: {
     alignItems: "flex-end",
-    marginBottom: 20, // mb-5
+    marginBottom: 20,
     gap: 6,
   },
   attachmentWrap: {
     alignSelf: "flex-end",
-    maxWidth: "88%",
   },
   bubble: {
-    maxWidth: "88%",
-    borderRadius: 16, // rounded-2xl
-    paddingHorizontal: 16, // px-4
-    paddingVertical: 12, // py-3
-  },
-  bubbleLight: {
-    backgroundColor: "rgba(0,0,0,0.04)", // var(--wash) light
-  },
-  bubbleDark: {
-    backgroundColor: "rgba(255,255,255,0.06)", // var(--wash) dark, slightly more visible
+    alignSelf: "flex-end",
+    borderTopLeftRadius: MobileTokens.radius.bubble,
+    borderTopRightRadius: MobileTokens.radius.bubbleCorner,
+    borderBottomLeftRadius: MobileTokens.radius.bubble,
+    borderBottomRightRadius: MobileTokens.radius.bubble,
+    paddingHorizontal: MobileTokens.space.md,
+    paddingVertical: 10,
   },
   text: {
-    fontSize: 15,
-    lineHeight: 24,
-  },
-  textLight: {
-    color: "#111111", // --text-primary light
-  },
-  textDark: {
-    color: "#f5f5f5", // --text-primary dark
+    fontSize: MobileTokens.font.body,
+    lineHeight: MobileTokens.font.body * MobileTokens.lineHeight.normal,
   },
 });

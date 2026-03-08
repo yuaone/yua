@@ -4,16 +4,26 @@ packages:
   - yua-backend
   - yua-mobile
   - yua-console
+  - yua-sdk
+  - yua-platform
+  - yua-admin
+  - yua-desktop
 
-nodeLinker: isolated
+nodeLinker: hoisted
 
 onlyBuiltDependencies:
   - '@firebase/util'
   - '@prisma/client'
   - '@scarf/scarf'
+  - better-sqlite3
   - cpu-features
+  - electron
+  - esbuild
   - node-pty
   - protobufjs
   - sharp
   - ssh2
   - unrs-resolver
+
+patchedDependencies:
+  expo-modules-core@3.0.29: patches/expo-modules-core@3.0.29.patch

@@ -70,6 +70,11 @@
 
 ## Part 2 — yua-console Redesign
 
+> **DEPRECATED (2026-03-08)** — Part 2의 라우트/컴포넌트 설계는
+> `YUA_PLATFORM_ADMIN_DESIGN.md`에서 yua-console → yua-platform(외부) + yua-admin(내부) 분리가
+> 확정되면서 무효화되었습니다. platform/admin 별도 설계는 PLATFORM_ADMIN 문서를 참조하세요.
+> Part 1(현재 분석), Part 3(SDK), Part 4(로드맵)는 유효합니다.
+
 ### 2.1 설계 원칙
 
 1. **Backend API 전용** — DB 직접 접근 제거. 모든 데이터는 yua-backend API를 통해서만.
@@ -82,8 +87,8 @@
 
 | 항목 | Target | 이유 |
 |------|--------|------|
-| Framework | Next.js 14 (App Router) | yua-web과 버전 통일 |
-| React | 18.3.x | yua-web과 통일 |
+| Framework | Next.js 14 (App Router) | yua-web과 버전 통일 (확정) |
+| React | 18.3.x | yua-web과 통일 (확정) |
 | Styling | Tailwind + CSS Variables | yua-web 디자인 토큰 공유 |
 | State | Zustand 5.x | yua-web과 통일 |
 | 차트 | recharts 또는 @tremor/react | 대시보드 특화 |
@@ -309,392 +314,501 @@ x-workspace-id: <uuid>
   -> req.workspace = { id, role }
 ```
 
-### 3.2 SDK 구조
+### 3.2 SDK 구조 (OpenAI SDK 미러)
 
 ```
-yua-sdk/
+@yua/sdk/                           (npm: @yua/sdk)
   src/
-    index.ts                    ← 메인 export
-    client.ts                   ← YuaClient 클래스
+    index.ts                        ← default export: YUA 클래스
+    yua.ts                          ← YUA 클래스 (OpenAI 클래스 미러)
 
-    auth/
-      firebase-auth.ts          ← Firebase token 자동 갱신
-      api-key-auth.ts           ← API Key 인증
-      types.ts
+    resources/
+      chat/
+        completions.ts              ← Completions (create, stream)
+        threads.ts                  ← Threads CRUD
+        messages.ts                 ← Messages CRUD
+        index.ts                    ← ChatResource (completions + threads + messages)
 
-    modules/
-      chat.ts                   ← ChatModule (threads, messages, send)
-      stream.ts                 ← StreamModule (SSE 구독)
-      workspace.ts              ← WorkspaceModule
-      project.ts                ← ProjectModule
-      memory.ts                 ← MemoryModule
-      billing.ts                ← BillingModule
-      usage.ts                  ← UsageModule
-      user.ts                   ← UserModule (me, settings)
-      apiKey.ts                 ← ApiKeyModule
-      upload.ts                 ← UploadModule
-      voice.ts                  ← VoiceModule
-      share.ts                  ← ShareModule
-      admin.ts                  ← AdminModule (superadmin)
-      instance.ts               ← InstanceModule
-
-    transport/
-      http.ts                   ← fetch/axios 래퍼 (retry, timeout)
-      sse.ts                    ← SSE 클라이언트 (EventSource 래퍼)
-      error.ts                  ← YuaApiError 클래스
+    core/
+      api-client.ts                 ← HTTP fetch 래퍼 (retry, timeout, auth header)
+      streaming.ts                  ← Stream<T> — AsyncIterable + .on() + .textContent()
+      auth.ts                       ← API Key / Firebase auth provider
+      error.ts                      ← APIError, AuthenticationError, RateLimitError
 
     types/
-      index.ts                  ← re-export from yua-shared
-      sdk.ts                    ← SDK 전용 타입 (config, options)
+      chat.ts                       ← ChatCompletion, ChatCompletionChunk (SDK 정의)
+      stream.ts                     ← Stream 관련 타입
+      shared.ts                     ← yua-shared re-export
 
-    utils/
-      retry.ts                  ← 지수 백오프 재시도
-      logger.ts                 ← SDK 내부 로깅
+    _shims/
+      web.ts                        ← fetch/ReadableStream polyfill (브라우저)
+      node.ts                       ← node:http 기반 SSE (Node.js)
 ```
 
-### 3.3 핵심 인터페이스 설계
-
-```typescript
-// --- SDK Configuration ---
-
-interface YuaClientConfig {
-  /** Backend base URL. Default: "https://yuaone.com/api" */
-  baseUrl?: string;
-
-  /** 인증 방식 선택 */
-  auth:
-    | { type: "firebase"; getIdToken: () => Promise<string> }
-    | { type: "apiKey"; key: string };
-
-  /** Workspace ID (optional, 대부분의 API에서 필요) */
-  workspaceId?: string;
-
-  /** 요청 타임아웃 (ms). Default: 30000 */
-  timeout?: number;
-
-  /** 재시도 횟수. Default: 2 */
-  retries?: number;
-
-  /** 디버그 로깅 활성화 */
-  debug?: boolean;
-}
-
-// --- Main Client ---
-
-class YuaClient {
-  readonly chat: ChatModule;
-  readonly stream: StreamModule;
-  readonly workspace: WorkspaceModule;
-  readonly project: ProjectModule;
-  readonly memory: MemoryModule;
-  readonly billing: BillingModule;
-  readonly usage: UsageModule;
-  readonly user: UserModule;
-  readonly apiKey: ApiKeyModule;
-  readonly upload: UploadModule;
-  readonly voice: VoiceModule;
-  readonly share: ShareModule;
-  readonly admin: AdminModule;
-  readonly instance: InstanceModule;
-
-  constructor(config: YuaClientConfig);
-
-  /** Workspace ID를 런타임에 변경 */
-  setWorkspace(workspaceId: string): void;
-}
+Python SDK (Phase 2):
+```
+yua-python/                         (pip: yua)
+  src/yua/
+    __init__.py                     ← YUA 클래스
+    resources/chat/completions.py
+    _streaming.py                   ← Stream[T] (httpx SSE)
+    _client.py                      ← SyncAPIClient, AsyncAPIClient
+    types/chat.py                   ← Pydantic 모델
 ```
 
-### 3.4 모듈별 API 설계
+### 3.3 OpenAI SDK 호환 설계 방침
 
-#### ChatModule
+> **핵심 원칙**: OpenAI SDK (`openai` npm)의 API surface를 최대한 미러링.
+> 기존 OpenAI 유저가 `import` 한 줄만 바꾸면 YUA로 전환 가능하게.
+>
+> **YUA 확장**: activity (사고 과정), memory, suggestion, reasoning_block 등
+> OpenAI에 없는 이벤트는 `.on()` 확장 핸들러 + `stream.events` iterable로 제공.
+
+### 3.4 응답 타입 체계 (SSOT)
+
+> 소스: `yua-shared/src/stream/types.ts`, `yua-shared/src/chat/chat-types.ts`,
+> `yua-backend/src/types/stream.ts`, `yua-shared/src/stream/activity.ts`
+
+#### 3.4.1 Chat Completion (비스트리밍)
 
 ```typescript
-class ChatModule {
-  /** 스레드 생성 */
-  createThread(params?: {
-    title?: string;
-    projectId?: string;
-  }): Promise<{ threadId: number; title: string }>;
+// OpenAI 호환 구조
+interface ChatCompletion {
+  id: string;                          // trace_id
+  object: "chat.completion";
+  created: number;                     // Unix timestamp
+  model: string;                       // "yua-normal" | "yua-fast" | "yua-deep"
 
-  /** 스레드 목록 조회 */
-  listThreads(params?: {
-    projectId?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{ threads: Thread[]; total: number }>;
+  choices: [{
+    index: 0;
+    message: {
+      role: "assistant";
+      content: string;                 // 전체 응답 텍스트
+    };
+    finish_reason: "stop" | "length" | "content_filter";
+  }];
 
-  /** 스레드 삭제 */
-  deleteThread(threadId: number): Promise<{ ok: boolean }>;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
 
-  /** 스레드 제목 변경 */
-  updateThreadTitle(threadId: number, title: string): Promise<{ ok: boolean }>;
-
-  /** 메시지 목록 조회 */
-  getMessages(threadId: number, params?: {
-    limit?: number;
-    before?: number;
-  }): Promise<{ messages: ChatMessage[] }>;
-
-  /** 메시지 전송 (스트리밍) — StreamModule.subscribe() 반환 */
-  send(threadId: number, params: {
-    content: string;
-    attachments?: Attachment[];
-    model?: string;
-  }): Promise<StreamSubscription>;
-
-  /** 메시지 전송 (비스트리밍, 완전한 응답 대기) */
-  sendAndWait(threadId: number, params: {
-    content: string;
-    attachments?: Attachment[];
-    model?: string;
-  }): Promise<{ message: ChatMessage }>;
+  // --- YUA 확장 (OpenAI에 없는 필드) ---
+  yua?: {
+    thinking_profile: "FAST" | "NORMAL" | "DEEP";
+    activities: ActivityItem[];        // 사고 과정 타임라인
+    suggestions: SuggestionItem[];     // 후속 질문 제안
+    memory_ops: MemoryStreamPayload[]; // 메모리 변경 이력
+    reasoning_blocks: ReasoningBlock[];// 딥 씽킹 블록
+  };
 }
 ```
 
-#### StreamModule
+#### 3.4.2 Chat Completion Chunk (스트리밍)
 
 ```typescript
-class StreamModule {
-  /** SSE 스트림 구독 */
-  subscribe(threadId: number): StreamSubscription;
+// OpenAI 호환 구조 — for await (const chunk of stream)
+interface ChatCompletionChunk {
+  id: string;                          // trace_id (모든 chunk 동일)
+  object: "chat.completion.chunk";
+  created: number;
 
-  /** 스트림 중단 */
-  abort(threadId: number): Promise<{ ok: boolean }>;
+  choices: [{
+    index: 0;
+    delta: {
+      role?: "assistant";              // 첫 chunk에만
+      content?: string;                // 토큰 delta
+    };
+    finish_reason: null | "stop" | "length";
+  }];
+
+  // --- YUA 확장 이벤트 (delta 외 이벤트 발생 시) ---
+  yua_event?: {
+    type: YuaEventType;
+    data: YuaEventData;
+  };
 }
 
-interface StreamSubscription {
-  /** 이벤트 리스너 등록 */
-  on(event: "token", handler: (data: { token: string }) => void): this;
-  on(event: "stage", handler: (data: { stage: YuaStreamStage }) => void): this;
-  on(event: "final", handler: (data: { finalText: string }) => void): this;
-  on(event: "suggestion", handler: (data: { items: YuaSuggestion[] }) => void): this;
-  on(event: "activity", handler: (data: ActivityEventPayload) => void): this;
-  on(event: "memory", handler: (data: MemoryStreamPayload) => void): this;
-  on(event: "reasoning_block", handler: (data: ReasoningBlock) => void): this;
-  on(event: "done", handler: () => void): this;
-  on(event: "error", handler: (error: YuaApiError) => void): this;
+type YuaEventType =
+  | "stage"              // 스테이지 전환 (thinking → answer)
+  | "activity"           // 사고 과정 (ADD/PATCH/END)
+  | "reasoning_block"    // 딥 씽킹 블록
+  | "reasoning_done"     // 딥 씽킹 종료
+  | "suggestion"         // 후속 질문 제안
+  | "memory"             // 메모리 커밋
+  | "answer_unlocked";   // 씽킹 완료, 답변 표시 가능
 
-  /** 스트림 수동 종료 */
-  close(): void;
+type YuaEventData =
+  | { stage: StreamStage }
+  | { activity: ActivityEventPayload }
+  | { block: ReasoningBlock }
+  | { suggestions: SuggestionItem[] }
+  | { memory: MemoryStreamPayload };
+```
 
-  /** 전체 응답 텍스트를 Promise로 수집 (편의 메서드) */
-  collect(): Promise<string>;
+#### 3.4.3 핵심 하위 타입 (yua-shared SSOT)
+
+```typescript
+// StreamStage — 스트림 단계
+type StreamStage =
+  | "thinking"           // 모델 추론 중
+  | "answer"             // 답변 생성 중
+  | "answer_unlocked"    // 씽킹 완료 → 답변 표시
+  | "analyzing_image"    // 이미지 분석
+  | "system"             // 시스템 메시지
+  | `spine:${string}`;   // 확장 네임스페이스
+
+// ActivityItem — 사고 과정 1개 단위
+interface ActivityItem {
+  id: string;
+  kind: ActivityKind;
+  status?: "RUNNING" | "OK" | "FAILED";
+  title?: string;
+  body?: string;
+  inlineSummary?: string;
+  sections?: ActivitySection[];
+  chips?: SourceChip[];              // 참조 출처
+  at?: number;
+  artifact?: {                       // 첨부 결과물
+    kind: "IMAGE_PANEL" | "CSV_PREVIEW" | "CODE_OUTPUT" | "CODE_ERROR";
+    imageUrl?: string;
+    csvPreview?: { headers: string[]; rows: string[][]; totalRows: number };
+    code?: { language: string; source: string; output: string };
+  };
+  meta?: Record<string, unknown>;
+}
+
+// ActivityKind — 16종
+type ActivityKind =
+  | "NOTE" | "TOOL" | "SEARCHING" | "RESEARCHING"
+  | "RANKING_RESULTS" | "ANALYZING_INPUT" | "ANALYZING_IMAGE"
+  | "PLANNING" | "REASONING_SUMMARY" | "EXECUTING"
+  | "VERIFYING" | "FINALIZING" | "IMAGE_ANALYSIS"
+  | "IMAGE_GENERATION" | "CODE_INTERPRETING" | "QUANT_ANALYSIS";
+
+// ActivityOp — ADD → PATCH* → END
+type ActivityOp = "ADD" | "PATCH" | "END";
+
+// SuggestionItem — 후속 질문
+interface SuggestionItem {
+  id: string;
+  label: string;
+  intent: "CONTINUE" | "COMPARE" | "STRUCTURE" | "APPLY" | "SUMMARIZE";
+  emoji?: string;
+}
+
+// ReasoningBlock — 딥 씽킹 패널
+interface ReasoningBlock {
+  id: string;
+  title: string;
+  body: string;
+  inlineSummary?: string;
+  groupIndex?: number;
+}
+
+// MemoryStreamPayload — 메모리 변경
+interface MemoryStreamPayload {
+  op: "PENDING" | "SAVED" | "UPDATED" | "CONFLICT" | "SKIPPED";
+  memoryId?: number;
+  scope: "user_profile" | "user_preference" | "user_research"
+       | "project_architecture" | "project_decision" | "general_knowledge";
+  content: string;
+  confidence?: number;
+  reason?: string;
 }
 ```
 
-#### WorkspaceModule
+### 3.5 SDK 클라이언트 설계 (OpenAI 스타일)
 
 ```typescript
-class WorkspaceModule {
-  /** 현재 워크스페이스 정보 */
-  getCurrent(): Promise<Workspace>;
+import YUA from "@yua/sdk";
 
-  /** 워크스페이스 목록 */
-  list(): Promise<{ workspaces: Workspace[] }>;
+// --- 초기화 (OpenAI 패턴 동일) ---
+const yua = new YUA({
+  apiKey: "yua_live_a1b2c3...",         // API Key 인증
+  baseURL: "https://api.yuaone.com/v1", // 기본값
+  timeout: 30_000,                      // ms
+  maxRetries: 2,
+});
 
-  /** 멤버 목록 */
-  getMembers(workspaceId?: string): Promise<{ members: WorkspaceMember[] }>;
-
-  /** 멤버 초대 */
-  inviteMember(email: string, role: WorkspaceRole): Promise<{ ok: boolean }>;
-
-  /** 멤버 역할 변경 */
-  updateMemberRole(userId: number, role: WorkspaceRole): Promise<{ ok: boolean }>;
-
-  /** 멤버 제거 */
-  removeMember(userId: number): Promise<{ ok: boolean }>;
-
-  /** 워크스페이스 설정 변경 */
-  updateSettings(settings: Partial<WorkspaceSettings>): Promise<{ ok: boolean }>;
-}
+// Firebase 인증 (웹/모바일 클라이언트용)
+const yua = new YUA({
+  authProvider: () => getAuth().currentUser!.getIdToken(),
+  workspace: "ws_abc123",
+});
 ```
 
-#### AdminModule (콘솔 전용)
+#### 3.5.1 `yua.chat.completions.create()` — 비스트리밍
 
 ```typescript
-class AdminModule {
-  /** 전체 사용자 목록 (페이지네이션) */
-  listUsers(params?: {
-    query?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{ users: AdminUser[]; total: number }>;
-
-  /** 사용자 상세 */
-  getUser(userId: number): Promise<AdminUser>;
-
-  /** 사용자 비활성화/활성화 */
-  setUserStatus(userId: number, active: boolean): Promise<{ ok: boolean }>;
-
-  /** 전체 워크스페이스 목록 */
-  listWorkspaces(params?: {
-    query?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{ workspaces: AdminWorkspace[]; total: number }>;
-
-  /** 시스템 통계 */
-  getSystemStats(): Promise<SystemStats>;
-
-  /** 실시간 모니터링 SSE */
-  monitorStream(): StreamSubscription;
-
-  /** 에러 로그 */
-  getErrorLogs(params?: {
-    level?: "error" | "warn";
-    since?: string;
-    limit?: number;
-  }): Promise<{ logs: ErrorLog[] }>;
-}
-```
-
-### 3.5 에러 핸들링
-
-```typescript
-class YuaApiError extends Error {
-  readonly status: number;
-  readonly code: string;         // e.g. "workspace_access_denied", "invalid_token"
-  readonly requestId?: string;
-
-  /** 재시도 가능한 에러인지 */
-  get isRetryable(): boolean;    // 429, 502, 503, 504
-
-  /** 인증 관련 에러인지 */
-  get isAuthError(): boolean;    // 401, 403
-}
-
-// SDK 내부: 401 수신 시 자동으로 Firebase token 갱신 후 1회 재시도
-// SDK 내부: 429 수신 시 Retry-After 헤더 존중
-```
-
-### 3.6 타입 시스템
-
-SDK는 자체 타입을 정의하지 않고, `yua-shared`에서 re-export한다:
-
-```typescript
-// yua-sdk/src/types/index.ts
-export type {
-  // Chat
-  ChatThread,
-  ChatMessage,
-  Attachment,
-} from "yua-shared/chat/chat-types";
-
-export type {
-  // Stream
-  YuaStreamStage,
-  YuaStreamEventKind,
-  YuaSuggestion,
-} from "yua-shared/stream/types";
-
-export type {
-  // Activity
-  ActivityEventPayload,
-  ActivityKind,
-} from "yua-shared/stream/activity";
-
-export type {
-  // Memory
-  MemoryStreamPayload,
-  MemoryStreamOp,
-} from "yua-shared/memory/types";
-
-export type {
-  // Plan/Billing
-  PlanId,
-  PlanPolicy,
-} from "yua-shared/plan/plan.types";
-
-export type {
-  // Workspace
-  WorkspaceRole,
-} from "yua-shared/workspace/workspace-types";
-```
-
-`yua-shared`에 부족한 타입이 있으면 `yua-shared`에 추가하고, SDK/Console 양쪽에서 import.
-
-### 3.7 사용 예시
-
-#### 기본 사용
-
-```typescript
-import { YuaClient } from "@yua/sdk";
-import { getAuth } from "firebase/auth";
-
-const yua = new YuaClient({
-  baseUrl: "https://yuaone.com/api",
-  auth: {
-    type: "firebase",
-    getIdToken: () => getAuth().currentUser!.getIdToken(),
+// OpenAI와 동일한 호출 패턴
+const completion = await yua.chat.completions.create({
+  model: "yua-normal",                  // FAST | NORMAL | DEEP
+  messages: [
+    { role: "user", content: "한국 GDP 성장률 분석해줘" }
+  ],
+  // YUA 확장 옵션
+  yua_options: {
+    thread_id: 12345,                   // 기존 스레드에 연결 (없으면 자동 생성)
+    attachments: [{ file_id: "att_xxx" }],
+    deep_variant: "EXPANDED",           // DEEP 모드 전용
   },
-  workspaceId: "ws_abc123",
 });
 
-// 스레드 생성 + 메시지 전송
-const { threadId } = await yua.chat.createThread({ title: "Test" });
-
-// 스트리밍 응답
-const stream = await yua.chat.send(threadId, {
-  content: "안녕하세요, YUA!",
-});
-
-stream.on("token", ({ token }) => process.stdout.write(token));
-stream.on("done", () => console.log("\n[완료]"));
-
-// 또는 전체 응답 한번에
-const fullText = await stream.collect();
+console.log(completion.choices[0].message.content);
+console.log(completion.usage);
+// YUA 확장
+console.log(completion.yua?.activities);     // 사고 과정
+console.log(completion.yua?.suggestions);    // 후속 질문
 ```
 
-#### API Key 인증 (서버 사이드)
+#### 3.5.2 `yua.chat.completions.create({ stream: true })` — 스트리밍
 
 ```typescript
-const yua = new YuaClient({
-  auth: { type: "apiKey", key: process.env.YUA_API_KEY! },
+// --- 기본 스트리밍 (OpenAI for-await 패턴) ---
+const stream = await yua.chat.completions.create({
+  model: "yua-normal",
+  messages: [{ role: "user", content: "안녕하세요" }],
+  stream: true,
 });
 
-const { threads } = await yua.chat.listThreads({ limit: 10 });
-```
+for await (const chunk of stream) {
+  // OpenAI 호환: 토큰 delta
+  const delta = chunk.choices[0]?.delta?.content;
+  if (delta) process.stdout.write(delta);
 
-#### Console에서 Admin 기능
-
-```typescript
-// 실시간 모니터링
-const monitor = yua.admin.monitorStream();
-
-monitor.on("active_streams", (data) => {
-  updateDashboard(data.count);
-});
-
-monitor.on("error_alert", (data) => {
-  showNotification(data.message);
-});
-
-// 사용자 검색
-const { users, total } = await yua.admin.listUsers({
-  query: "test@example.com",
-  limit: 20,
-});
-```
-
-#### 에러 핸들링
-
-```typescript
-import { YuaApiError } from "@yua/sdk";
-
-try {
-  await yua.chat.send(threadId, { content: "..." });
-} catch (e) {
-  if (e instanceof YuaApiError) {
-    if (e.isAuthError) {
-      // 로그인 페이지로 리다이렉트
-      router.push("/login");
-    } else if (e.code === "usage_limit_exceeded") {
-      // 업그레이드 안내
-      showUpgradeModal();
+  // YUA 확장: activity, reasoning 등
+  if (chunk.yua_event) {
+    switch (chunk.yua_event.type) {
+      case "stage":
+        console.log(`[${chunk.yua_event.data.stage}]`);
+        break;
+      case "activity":
+        const { op, item } = chunk.yua_event.data.activity;
+        if (op === "ADD") console.log(`  > ${item.title}`);
+        break;
+      case "suggestion":
+        console.log("Suggestions:", chunk.yua_event.data.suggestions);
+        break;
     }
   }
 }
 ```
+
+#### 3.5.3 편의 메서드 (YUA 확장)
+
+```typescript
+// --- .textContent() — 전체 텍스트만 수집 ---
+const stream = await yua.chat.completions.create({
+  model: "yua-normal",
+  messages: [{ role: "user", content: "요약해줘" }],
+  stream: true,
+});
+
+const text = await stream.textContent();
+// "요약 결과..."
+
+// --- .on() 이벤트 핸들러 (Node EventEmitter 패턴) ---
+const stream = await yua.chat.completions.create({
+  model: "yua-deep",
+  messages: [{ role: "user", content: "심층 분석" }],
+  stream: true,
+});
+
+stream.on("stage", (stage) => updateUI(stage));
+stream.on("activity", ({ op, item }) => renderTimeline(op, item));
+stream.on("reasoning_block", (block) => renderThinking(block));
+stream.on("suggestion", (items) => showSuggestions(items));
+stream.on("memory", (payload) => showMemoryIndicator(payload));
+
+for await (const chunk of stream) {
+  appendToken(chunk.choices[0]?.delta?.content ?? "");
+}
+
+// --- .abort() — 스트림 중단 ---
+stream.abort();
+
+// --- .finalMessage() — 스트림 완료 후 ChatCompletion 반환 ---
+const final = await stream.finalMessage();
+console.log(final.usage);
+console.log(final.yua?.activities);
+```
+
+### 3.6 Thread / Message API (CRUD)
+
+```typescript
+// --- Threads ---
+const thread = await yua.chat.threads.create({ title: "분석 프로젝트" });
+// { id: 12345, title: "분석 프로젝트", created_at: 1709856000 }
+
+const threads = await yua.chat.threads.list({ limit: 20 });
+// { data: Thread[], has_more: boolean }
+
+await yua.chat.threads.update(12345, { title: "새 제목" });
+await yua.chat.threads.del(12345);
+
+// --- Messages ---
+const messages = await yua.chat.messages.list(12345, { limit: 50 });
+// { data: ChatMessage[] }
+
+await yua.chat.messages.create(12345, {
+  role: "user",
+  content: "추가 질문",
+  attachments: [{ file_id: "att_xxx" }],
+});
+```
+
+### 3.7 에러 핸들링
+
+```typescript
+import YUA, { APIError, AuthenticationError, RateLimitError } from "@yua/sdk";
+
+try {
+  await yua.chat.completions.create({ ... });
+} catch (e) {
+  if (e instanceof AuthenticationError) {
+    // 401/403 — 토큰 만료 또는 키 무효
+    // SDK 내부: Firebase 토큰 자동 갱신 후 1회 재시도 이미 실패한 상태
+    router.push("/login");
+  }
+  if (e instanceof RateLimitError) {
+    // 429 — Retry-After 헤더 자동 존중 (SDK 내부)
+    console.log(`Retry after ${e.retryAfter}s`);
+  }
+  if (e instanceof APIError) {
+    console.log(e.status);       // HTTP status
+    console.log(e.code);         // "usage_limit_exceeded" | "compute_gate_busy" | ...
+    console.log(e.message);      // 사람이 읽을 수 있는 메시지
+    console.log(e.requestId);    // trace_id (디버깅용)
+  }
+}
+```
+
+에러 코드 체계:
+
+| HTTP | code | 설명 |
+|------|------|------|
+| 401 | `invalid_api_key` | API Key 무효/만료 |
+| 401 | `token_expired` | Firebase 토큰 만료 |
+| 403 | `workspace_access_denied` | 워크스페이스 권한 없음 |
+| 429 | `rate_limit_exceeded` | RPM/TPM 초과 |
+| 429 | `compute_gate_busy` | 동시 요청 제한 (Free: 1, Pro: 3) |
+| 402 | `insufficient_credits` | API 크레딧 부족 |
+| 402 | `usage_limit_exceeded` | 일일/월간 사용량 초과 |
+| 500 | `internal_error` | 서버 내부 오류 |
+| 503 | `model_overloaded` | 모델 과부하 |
+
+### 3.8 타입 시스템
+
+SDK 타입은 `yua-shared` re-export + SDK 전용 래퍼:
+
+```typescript
+// @yua/sdk — 메인 export
+export default class YUA { ... }
+
+// 에러 클래스
+export { APIError, AuthenticationError, RateLimitError, BadRequestError } from "./error";
+
+// 응답 타입 (SDK 정의, yua-shared 기반)
+export type { ChatCompletion, ChatCompletionChunk } from "./types/chat";
+export type { Stream } from "./types/stream";
+
+// yua-shared re-export (하위 타입)
+export type {
+  ChatMessage, ChatThread, AttachmentMeta,
+  StreamStage, SuggestionItem, ThinkingProfile,
+  ActivityItem, ActivityKind, ActivityOp,
+  MemoryStreamPayload, MemoryStreamOp, MemoryScope,
+} from "yua-shared";
+```
+
+### 3.9 사용 예시 (실전)
+
+#### Python SDK (Phase 2)
+
+```python
+import yua
+
+client = yua.YUA(api_key="yua_live_a1b2c3...")
+
+# 비스트리밍
+response = client.chat.completions.create(
+    model="yua-normal",
+    messages=[{"role": "user", "content": "한국 GDP 분석"}],
+)
+print(response.choices[0].message.content)
+
+# 스트리밍
+stream = client.chat.completions.create(
+    model="yua-deep",
+    messages=[{"role": "user", "content": "심층 분석"}],
+    stream=True,
+)
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="")
+    if chunk.yua_event and chunk.yua_event.type == "activity":
+        print(f"\n  > {chunk.yua_event.data.activity.item.title}")
+```
+
+#### REST (curl)
+
+```bash
+# 비스트리밍
+curl https://api.yuaone.com/v1/chat/completions \
+  -H "Authorization: Bearer yua_live_a1b2c3..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "yua-normal",
+    "messages": [{"role": "user", "content": "안녕"}]
+  }'
+
+# 스트리밍
+curl https://api.yuaone.com/v1/chat/completions \
+  -H "Authorization: Bearer yua_live_a1b2c3..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "yua-normal",
+    "messages": [{"role": "user", "content": "안녕"}],
+    "stream": true
+  }' --no-buffer
+
+# SSE 응답 (text/event-stream):
+# data: {"id":"tr_abc","object":"chat.completion.chunk","choices":[{"delta":{"content":"안녕"},...}]}
+# data: {"id":"tr_abc","object":"chat.completion.chunk","yua_event":{"type":"suggestion",...}}
+# data: [DONE]
+```
+
+#### 모델 매핑
+
+| SDK model | 백엔드 ThinkingProfile | 용도 |
+|-----------|----------------------|------|
+| `yua-fast` | FAST | 단순 응답, 번역, 요약 |
+| `yua-normal` | NORMAL | 범용 (기본값) |
+| `yua-deep` | DEEP (STANDARD) | 심층 분석, 추론 |
+| `yua-deep-expanded` | DEEP (EXPANDED) | 확장 심층 (다단계 검증) |
+| `yua-search` | NORMAL + SEARCH mode | 웹검색 특화 |
+
+---
+
+## Part 3.5 — 백엔드 감사 결과 (2026.03.08)
+
+> 상세 내용은 `YUA_PLATFORM_ADMIN_DESIGN.md` 섹션 7.4~7.7 참조
+
+### 현재 백엔드 API Key 시스템 문제점
+
+1. **저장소 3중복** — keys.json (평문!) + MySQL api_keys_v2 + Firestore api_keys → MySQL SSOT로 통일 필요
+2. **선불 크레딧 없음** — 실행 전 잔고 체크 없어 무한 호출 가능 → credit-check 미들웨어 추가
+3. **키별 Rate Limit 없음** — IP 기반 글로벌만 → 키별 RPM/TPM 테이블 필요
+4. **Scope/권한 없음** — 모든 키 = user role → read/write/admin 스코프 추가
+5. **워크스페이스 격리 없음** — user_id만 연결 → workspace_id 바인딩 필요
+
+### SDK 과금 연계
+
+- OpenAI Runtime → `response.completed` → `billing-finalize.ts` → `yua_usage_daily.cost_unit`
+- SDK API Key 유저도 **동일 파이프라인** 사용, 별도 과금 엔진 불필요
+- 추가 필요: `api_key_credits` (선불 잔고) + `credit_transactions` (충전/차감 이력) + `api_key_audit_log` (요청별 감사)
 
 ---
 

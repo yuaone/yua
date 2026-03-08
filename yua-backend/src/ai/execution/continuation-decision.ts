@@ -84,15 +84,16 @@ export function decideContinuation(args: {
     return { type: "CONTINUE_LLM" };
   }
 
-  // 🔥 DEEP mode: allow at least 2 segments
   const isDeep =
     (args as any).thinkingProfile === "DEEP";
 
-  if (!isDeep && args.segmentIndex >= 1) {
+  // NORMAL: 최소 2 segments 허용 (1 segment에서 조기 종료 방지)
+  if (!isDeep && args.segmentIndex >= 2) {
     return { type: "FINISH", reason: "CONFIDENCE_STABLE_EXIT" };
   }
 
-  if (isDeep && args.segmentIndex >= 2) {
+  // DEEP: 최소 3 segments 허용
+  if (isDeep && args.segmentIndex >= 3) {
     return { type: "FINISH", reason: "DEEP_SEGMENT_LIMIT_REACHED" };
   }
 

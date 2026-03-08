@@ -1,76 +1,83 @@
-// 🔥 YUA Memory Decay Engine — PHASE 12-2 (FREEZE AWARE)
+// 🔥 YUA Memory Decay Engine — PHASE 2 (Exponential Decay)
 // --------------------------------------------------
 // ✔ Batch / Cron only
 // ✔ NO judgment / NO routing
-// ✔ Confidence-weight decay ONLY
+// ✔ Exponential decay: C_new = max(floor, C_old × e^(-ln2/H × t) × access_boost × source_penalty)
 // ✔ Reversible / explainable
-// ✔ PostgreSQL native
-// ✔ Workspace-level protection
+// ✔ PostgreSQL native (batch CTE update)
+// ✔ Workspace-level protection (freeze check + collapse detection)
+// ✔ Archive: confidence < 0.10 → is_active = false
 // --------------------------------------------------
 
 import { pgPool } from "../../db/postgres";
-import { SignalRepo } from "../statistics/signal-repo";
 
 export type MemoryDecayResult = {
   scanned: number;
   decayed: number;
-  skipped: number;
+  archived: number;
+  skippedFrozen: number;
 };
 
-type DecayPolicy = {
-  scope: string;
-  baseRate: number;
-  idleBoost: number;
-  minConfidence: number;
+/* ===================================================
+   Scope-specific half-lives (days)
+=================================================== */
+const SCOPE_HALF_LIFE: Record<string, number> = {
+  user_profile: 120,
+  user_preference: 60,
+  project_architecture: 90,
+  project_decision: 90,
+  user_research: 45,
+  general_knowledge: 30,
 };
 
-/**
- * 🔒 SSOT Decay Policy
- * - scope 단위로만 제어
- */
-const DECAY_POLICIES: DecayPolicy[] = [
-  {
-    scope: "general_knowledge",
-    baseRate: 0.015,
-    idleBoost: 0.02,
-    minConfidence: 0.25,
-  },
-  {
-    scope: "flow",
-    baseRate: 0.02,
-    idleBoost: 0.03,
-    minConfidence: 0.3,
-  },
-  {
-    scope: "rule",
-    baseRate: 0.005,
-    idleBoost: 0.01,
-    minConfidence: 0.5,
-  },
-];
+/* ===================================================
+   Scope-specific confidence floors
+=================================================== */
+const SCOPE_FLOOR: Record<string, number> = {
+  user_profile: 0.20,
+  user_preference: 0.15,
+  project_architecture: 0.20,
+  project_decision: 0.20,
+  user_research: 0.10,
+  general_knowledge: 0.05,
+};
 
-function daysBetween(a: Date, b: Date): number {
-  return Math.floor(
-    Math.abs(a.getTime() - b.getTime()) / (1000 * 60 * 60 * 24)
-  );
-}
+/* ===================================================
+   Source penalties
+=================================================== */
+const SOURCE_PENALTY: Record<string, number> = {
+  explicit: 1.0,
+  tool_verified: 1.0,
+  search_verified: 0.95,
+  passive: 0.85,
+};
+
+const ARCHIVE_THRESHOLD = 0.10;
 
 export const MemoryDecayEngine = {
   /**
    * 🔥 MAIN ENTRY
    * - 하루 1회 또는 수동 실행
+   * - Batch CTE approach: one UPDATE per non-frozen workspace set
    */
   async run(): Promise<MemoryDecayResult> {
     let scanned = 0;
     let decayed = 0;
-    let skipped = 0;
+    let archived = 0;
+    let skippedFrozen = 0;
 
-    const now = new Date();
+    // 🔒 Step 1: Get frozen workspace IDs to exclude
+    const { rows: frozenRows } = await pgPool.query<{ workspace_id: string }>(
+      `SELECT workspace_id FROM workspace_memory_state WHERE is_frozen = true`
+    );
+    const frozenSet = new Set(frozenRows.map((r) => r.workspace_id));
 
+    // 🔒 Step 2: Fetch all active records
     const { rows } = await pgPool.query<{
       id: number;
       workspace_id: string;
       scope: string;
+      source: string;
       confidence: number;
       access_count: number;
       last_accessed_at: Date | null;
@@ -78,13 +85,9 @@ export const MemoryDecayEngine = {
     }>(
       `
       SELECT
-        id,
-        workspace_id,
-        scope,
-        confidence,
-        access_count,
-        last_accessed_at,
-        created_at
+        id, workspace_id, scope, source,
+        confidence, access_count,
+        last_accessed_at, created_at
       FROM memory_records
       WHERE confidence > 0
         AND is_active = true
@@ -93,88 +96,103 @@ export const MemoryDecayEngine = {
 
     scanned = rows.length;
 
+    const now = Date.now();
+    const MS_PER_DAY = 1000 * 60 * 60 * 24;
+    const LN2 = Math.LN2;
+
+    // Batch: collect { id, newConfidence } pairs
+    const updates: { id: number; confidence: number }[] = [];
+    const archiveIds: number[] = [];
+
     for (const r of rows) {
-            const policy = DECAY_POLICIES.find(
-        (p) => p.scope === r.scope
-      );
-
-      // 🔒 scope 미지원 → skip
-      if (!policy) {
-        skipped++;
+      // 🔒 workspace freeze → skip
+      if (frozenSet.has(r.workspace_id)) {
+        skippedFrozen++;
         continue;
       }
 
-      // 🔒 SIGNAL: Memory Decay Hint (optional)
-      const hint = await SignalRepo.getLatest<{
-        baseRate?: number;
-      }>({
-        kind: "MEMORY_DECAY_HINT",
-        scope: "GLOBAL",
-      });
+      const halfLife = SCOPE_HALF_LIFE[r.scope];
+      const floor = SCOPE_FLOOR[r.scope];
 
-      const signalBaseRate =
-        hint && hint.confidence >= 0.6
-          ? Number(hint.value?.baseRate ?? policy.baseRate)
-          : policy.baseRate;
-
-      // 🔒 workspace freeze 상태 확인
-      const { rows: freezeRows } = await pgPool.query<{
-        is_frozen: boolean;
-      }>(
-        `
-        SELECT is_frozen
-        FROM workspace_memory_state
-        WHERE workspace_id = $1
-        `,
-        [r.workspace_id]
-      );
-
-      if (freezeRows[0]?.is_frozen === true) {
-        skipped++;
+      // Unsupported scope → skip
+      if (halfLife === undefined || floor === undefined) {
         continue;
       }
 
-      const last = r.last_accessed_at ?? r.created_at;
-      const idleDays = daysBetween(new Date(last), now);
+      // Time since last access (days, fractional)
+      const lastTs = r.last_accessed_at
+        ? new Date(r.last_accessed_at).getTime()
+        : new Date(r.created_at).getTime();
+      const t = Math.max(0, (now - lastTs) / MS_PER_DAY);
 
-      // 🔒 decay 계산 (explainable)
-      let decay =
-        signalBaseRate +
-        (idleDays >= 7 ? policy.idleBoost : 0);
+      // Exponential decay factor: e^(-ln2/H × t)
+      const decayFactor = Math.exp((-LN2 / halfLife) * t);
 
-      // 사용량이 많으면 decay 완화
-      if (r.access_count >= 5) {
-        decay *= 0.5;
-      }
-
-      const nextConfidence = Number(
-        Math.max(
-          policy.minConfidence,
-          r.confidence * (1 - decay)
-        ).toFixed(4)
+      // Access boost: min(1.5, 1 + 0.20 × ln(1 + access_count))
+      const accessBoost = Math.min(
+        1.5,
+        1 + 0.20 * Math.log(1 + (r.access_count ?? 0))
       );
 
-      if (nextConfidence === r.confidence) {
-        skipped++;
+      // Source penalty (default 1.0 for unknown sources)
+      const sourcePenalty = SOURCE_PENALTY[r.source] ?? 1.0;
+
+      // New confidence
+      const raw = r.confidence * decayFactor * accessBoost * sourcePenalty;
+      const newConfidence = Number(Math.max(floor, raw).toFixed(4));
+
+      // Archive if below threshold
+      if (newConfidence < ARCHIVE_THRESHOLD) {
+        archiveIds.push(r.id);
         continue;
       }
+
+      // Only update if changed
+      if (newConfidence !== r.confidence) {
+        updates.push({ id: r.id, confidence: newConfidence });
+      }
+    }
+
+    // 🔒 Step 3: Batch UPDATE via CTE (unnest approach)
+    if (updates.length > 0) {
+      const ids = updates.map((u) => u.id);
+      const confidences = updates.map((u) => u.confidence);
 
       await pgPool.query(
         `
-        UPDATE memory_records
+        UPDATE memory_records m
         SET
-          confidence = $1,
+          confidence = v.new_confidence,
           updated_at = NOW()
-        WHERE id = $2
+        FROM (
+          SELECT
+            unnest($1::bigint[]) AS id,
+            unnest($2::numeric[]) AS new_confidence
+        ) v
+        WHERE m.id = v.id
         `,
-        [nextConfidence, r.id]
+        [ids, confidences]
       );
 
-      decayed++;
+      decayed = updates.length;
+    }
+
+    // 🔒 Step 4: Archive records below threshold
+    if (archiveIds.length > 0) {
+      await pgPool.query(
+        `
+        UPDATE memory_records
+        SET is_active = false, updated_at = NOW()
+        WHERE id = ANY($1::bigint[])
+        `,
+        [archiveIds]
+      );
+
+      archived = archiveIds.length;
     }
 
     /* --------------------------------------------------
-       🔒 PHASE 12-2: Workspace-level collapse detection
+       🔒 Workspace-level collapse detection
        - 평균 confidence 붕괴 시 자동 FREEZE
     -------------------------------------------------- */
     await pgPool.query(
@@ -199,6 +217,6 @@ export const MemoryDecayEngine = {
       `
     );
 
-    return { scanned, decayed, skipped };
+    return { scanned, decayed, archived, skippedFrozen };
   },
 };

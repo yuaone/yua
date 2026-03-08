@@ -5,6 +5,7 @@ import type { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { getUserFromExpressRequest } from "./auth.express";
 import { mysqlPool } from "../db/mysql";
+import { pgPool } from "../db/postgres";
 
 export async function requireAuthOrApiKey(
   req: Request,
@@ -71,22 +72,82 @@ export async function requireAuthOrApiKey(
     );
 
     const row = rows?.[0];
-    if (!row) {
+    if (row) {
+      const userId = Number(row.user_id);
+
+      // ✅ SSOT: Express.User shape 충족
+      req.user = {
+        userId,
+        id: userId, // ✅ alias
+        email: row.email ?? null,
+        firebaseUid: "api_key",
+        name: row.name ?? "API Key User",
+        role: "user",
+      };
+
+      next();
+      return;
+    }
+
+    /* ======================================================
+       2️⃣-b PostgreSQL platform_api_keys fallback (yua_sk_... keys)
+    ====================================================== */
+    const pgResult = await pgPool.query(
+      `SELECT id, workspace_id, user_id, name, status
+       FROM platform_api_keys
+       WHERE key_hash = $1
+         AND status = 'active'
+       LIMIT 1`,
+      [apiKeyHash]
+    );
+
+    const platformKey = pgResult.rows?.[0];
+    if (!platformKey) {
       res.status(401).json({ ok: false, error: "invalid_api_key" });
       return;
     }
 
-    const userId = Number(row.user_id);
+    const platformUserId = Number(platformKey.user_id);
+    const platformWorkspaceId = Number(platformKey.workspace_id);
 
-    // ✅ SSOT: Express.User shape 충족
+    // Look up user email/name from MySQL users table
+    let userEmail: string | null = null;
+    let userName: string = "Platform API Key User";
+    try {
+      const [userRows]: any = await mysqlPool.query(
+        `SELECT email, name FROM users WHERE id = ? LIMIT 1`,
+        [platformUserId]
+      );
+      if (userRows?.[0]) {
+        userEmail = userRows[0].email ?? null;
+        userName = userRows[0].name ?? "Platform API Key User";
+      }
+    } catch (userErr) {
+      console.warn("[AUTH][PLATFORM_KEY] Failed to look up user info:", userErr);
+    }
+
+    // ✅ Set req.user with platform key context
     req.user = {
-      userId,
-      id: userId, // ✅ alias
-      email: row.email ?? null,
-      firebaseUid: "api_key",
-      name: row.name ?? "API Key User",
+      userId: platformUserId,
+      id: platformUserId,
+      email: userEmail,
+      firebaseUid: "platform_api_key",
+      name: userName,
       role: "user",
     };
+
+    // Set workspace context so withWorkspace middleware picks it up
+    req.headers["x-workspace-id"] = String(platformWorkspaceId);
+
+    // Fire-and-forget: update last_used_at
+    pgPool
+      .query(
+        `UPDATE platform_api_keys SET last_used_at = NOW() WHERE id = $1`,
+        [platformKey.id]
+      )
+      .catch((e: any) =>
+        console.warn("[AUTH][PLATFORM_KEY] Failed to update last_used_at:", e)
+      );
 
     next();
     return;

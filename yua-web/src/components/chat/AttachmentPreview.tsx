@@ -172,8 +172,15 @@ export default function AttachmentPreview({
 
   return (
     <>
-      <div className="flex mt-2 max-h-[140px] max-md:max-h-[100px] overflow-y-auto overflow-x-hidden">
-        <div className="flex flex-wrap gap-2 max-w-full">
+ <div
+   className="
+     flex flex-wrap
+     gap-2
+     max-w-full
+     overflow-x-hidden
+   "
+ >
+        <div className="flex flex-wrap gap-2">
           {attachments.map((att) => (
             <AttachmentCard
               key={att.id}
@@ -252,7 +259,12 @@ function AttachmentCard({
           <img
             src={att.previewUrl}
             alt=""
-            className="w-[120px] h-[80px] max-md:w-[100px] max-md:h-[68px] object-cover rounded-lg"
+ className="
+   w-[72px] h-[72px]
+   sm:w-[80px] sm:h-[80px]
+   object-cover rounded-lg
+   flex-shrink-0
+ "
             onError={() => setImgError(true)}
           />
           {/* Edit indicator on hover */}

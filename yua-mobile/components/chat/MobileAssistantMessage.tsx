@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "@/hooks/useTheme";
+import { MobileTokens } from "@/constants/tokens";
+import { useAdaptive } from "@/constants/adaptive";
 
 import MobileAttachmentDisplay from "@/components/chat/MobileAttachmentDisplay";
 import MobileMarkdown from "@/components/common/MobileMarkdown";
@@ -25,7 +27,7 @@ type MobileAssistantMessageProps = {
 };
 
 function renderCompareTable(table: MobileCompareTable): string {
-  const header = `| \u9805\u76EE | ${table.columns.map((c) => c.title).join(" | ")} |`;
+  const header = `| 項目 | ${table.columns.map((c) => c.title).join(" | ")} |`;
   const sep = `| --- | ${table.columns.map(() => "---").join(" | ")} |`;
   const rows = table.rows.map(
     (row) =>
@@ -53,7 +55,8 @@ export default function MobileAssistantMessage({
   message,
   onPressThink,
 }: MobileAssistantMessageProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const { avatarSize } = useAdaptive();
   const finalized = Boolean(message.finalized);
   const metaRef = useRef<MobileChatMessageMeta | undefined>(message.meta);
   const messagesByThread = useMobileChatStore((s) => s.messagesByThread);
@@ -132,8 +135,38 @@ export default function MobileAssistantMessage({
     return renderCompareTable(stableMeta.compareTable);
   }, [finalized, stableMeta?.compareTable]);
 
+  const avatarBg = isDark ? "#f5f5f5" : "#0f172a";
+  const avatarTextColor = isDark ? "#111111" : "#ffffff";
+
   return (
     <View style={styles.wrap}>
+      {/* AI Avatar + Name */}
+      <View style={styles.avatarRow}>
+        <View
+          style={[
+            styles.avatar,
+            {
+              width: avatarSize,
+              height: avatarSize,
+              borderRadius: avatarSize / 2,
+              backgroundColor: avatarBg,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.avatarLabel,
+              { color: avatarTextColor },
+            ]}
+          >
+            Y
+          </Text>
+        </View>
+        <Text style={[styles.nameLabel, { color: colors.textSecondary }]}>
+          YUA
+        </Text>
+      </View>
+
       {/* Stream Overlay (typing + thinking panel) */}
       <MobileStreamOverlay
         assistantMeta={stableMeta ?? null}
@@ -240,10 +273,28 @@ export default function MobileAssistantMessage({
 }
 
 const styles = StyleSheet.create({
-  /* Web: transparent bg, full width, no border */
+  /* Flat text, full width, no bubble */
   wrap: {
     width: "100%",
     gap: 4,
+  },
+  avatarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
+  avatar: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarLabel: {
+    fontSize: MobileTokens.font.sm,
+    fontWeight: MobileTokens.weight.bold,
+  },
+  nameLabel: {
+    fontSize: MobileTokens.font.sm,
+    fontWeight: MobileTokens.weight.semibold,
   },
   content: {
     gap: 4,

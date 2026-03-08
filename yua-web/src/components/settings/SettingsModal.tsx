@@ -28,7 +28,9 @@ export default function SettingsModal() {
       <div
         className="
           relative z-10 flex
-          h-[82vh] w-[920px] max-lg:w-[95vw] max-lg:h-[90vh] max-md:w-full max-md:h-full max-md:rounded-none max-lg:flex-col
+          h-[82vh] w-[920px]
+          max-lg:w-[95vw] max-lg:h-[90vh] max-lg:flex-col
+          max-md:w-full max-md:h-full max-md:rounded-none
           rounded-2xl bg-white dark:bg-[#1b1b1b] dark:text-[var(--text-primary)]
           shadow-[0_20px_60px_rgba(0,0,0,0.25)]
           overflow-hidden
@@ -39,7 +41,7 @@ export default function SettingsModal() {
         <SettingsSidebar />
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-10 py-8 text-[var(--text-secondary)]">
+        <div className="flex-1 overflow-y-auto px-10 py-8 max-md:px-5 max-md:py-5 text-[var(--text-secondary)]">
           {tab === "personalization" && <Personalization />}
           {tab === "notifications" && <Notifications />}
           {tab === "data" && <DataPanel />}

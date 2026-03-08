@@ -18,8 +18,8 @@ function formatTime(sec: number): string {
 /** Generate deterministic pseudo-random bar heights from URL string */
 function generateBars(seed: string, count: number): number[] {
   let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
+  for (const ch of seed) {
+    hash = ((hash << 5) - hash + (ch.codePointAt(0) ?? 0)) | 0;
   }
   const bars: number[] = [];
   for (let i = 0; i < count; i++) {

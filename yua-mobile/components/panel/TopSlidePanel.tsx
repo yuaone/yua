@@ -3,15 +3,16 @@ import { Dimensions, Pressable, StyleSheet, Text, View, useWindowDimensions } fr
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
-  Easing,
   interpolate,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 
 import PanelBackdrop from "@/components/panel/PanelBackdrop";
+import { MobileTokens } from "@/constants/tokens";
 
 type TopSlidePanelProps = {
   visible: boolean;
@@ -23,8 +24,7 @@ type TopSlidePanelProps = {
   renderWhenClosed?: boolean;
 };
 
-const OPEN_DURATION_MS = 220;
-const CLOSE_DURATION_MS = 200;
+const PANEL_SPRING = MobileTokens.spring.sheet;
 
 export default function TopSlidePanel({
   visible,
@@ -46,25 +46,15 @@ export default function TopSlidePanel({
   useEffect(() => {
     if (visible) {
       setMounted(true);
-      progress.value = withTiming(1, {
-        duration: OPEN_DURATION_MS,
-        easing: Easing.out(Easing.cubic),
-      });
+      progress.value = withSpring(1, PANEL_SPRING);
       return;
     }
 
-    progress.value = withTiming(
-      0,
-      {
-        duration: CLOSE_DURATION_MS,
-        easing: Easing.out(Easing.quad),
-      },
-      (finished) => {
-        if (finished && !renderWhenClosed) {
-          runOnJS(setMounted)(false);
-        }
+    progress.value = withSpring(0, PANEL_SPRING, (finished) => {
+      if (finished && !renderWhenClosed) {
+        runOnJS(setMounted)(false);
       }
-    );
+    });
   }, [visible, renderWhenClosed, progress]);
 
   const closedTranslateY = useMemo(() => {

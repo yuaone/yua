@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "baseUrl": ".",
+    "typeRoots": ["./node_modules/@types", "../node_modules/@types"],
+    "paths": {
+      "@/*": ["src/renderer/*"],
+      "yua-shared": ["../yua-shared/src/index.ts"],
+      "yua-shared/*": ["../yua-shared/src/*"],
+      "react": ["./node_modules/@types/react"],
+      "@types/react": ["./node_modules/@types/react"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/env.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useTheme } from "@/hooks/useTheme";
 import type { MobileProject } from "@/types/sidebar";
 
 type MobileProjectListProps = {
@@ -13,21 +14,33 @@ export default function MobileProjectList({
   activeProjectId,
   onSelectProject,
 }: MobileProjectListProps) {
+  const { colors } = useTheme();
+
   return (
     <View style={styles.wrap}>
       <Pressable
-        style={[styles.item, activeProjectId == null ? styles.itemActive : null]}
+        style={({ pressed }) => [
+          styles.item,
+          { borderColor: colors.line, backgroundColor: colors.surfacePanel },
+          activeProjectId == null && { borderColor: colors.linkColor, backgroundColor: colors.wash },
+          pressed && { opacity: 0.7 },
+        ]}
         onPress={() => onSelectProject(null)}
       >
-        <Text style={styles.text}>General</Text>
+        <Text style={[styles.text, { color: colors.textPrimary }]}>General</Text>
       </Pressable>
       {projects.map((project) => (
         <Pressable
           key={project.id}
-          style={[styles.item, activeProjectId === project.id ? styles.itemActive : null]}
+          style={({ pressed }) => [
+            styles.item,
+            { borderColor: colors.line, backgroundColor: colors.surfacePanel },
+            activeProjectId === project.id && { borderColor: colors.linkColor, backgroundColor: colors.wash },
+            pressed && { opacity: 0.7 },
+          ]}
           onPress={() => onSelectProject(project.id)}
         >
-          <Text style={styles.text}>{project.name}</Text>
+          <Text style={[styles.text, { color: colors.textPrimary }]}>{project.name}</Text>
         </Pressable>
       ))}
     </View>
@@ -38,14 +51,8 @@ const styles = StyleSheet.create({
   wrap: { gap: 8 },
   item: {
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     borderRadius: 10,
     padding: 10,
-    backgroundColor: "#fff",
   },
-  itemActive: {
-    borderColor: "#2563eb",
-    backgroundColor: "#eff6ff",
-  },
-  text: { color: "#0f172a", fontSize: 14, fontWeight: "500" },
+  text: { fontSize: 14, fontWeight: "500" },
 });

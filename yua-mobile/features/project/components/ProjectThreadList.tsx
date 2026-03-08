@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useTheme } from "@/hooks/useTheme";
 import type { MobileThread } from "@/types/sidebar";
 
 type ProjectThreadListProps = {
@@ -8,18 +9,44 @@ type ProjectThreadListProps = {
 };
 
 export default function ProjectThreadList({ threads, onPressThread }: ProjectThreadListProps) {
+  const { colors } = useTheme();
+
   if (threads.length === 0) {
-    return <Text style={styles.empty}>No threads in this project yet.</Text>;
+    return null;
   }
 
   return (
     <View style={styles.wrap}>
-      {threads.map((thread) => (
-        <Pressable key={thread.id} style={styles.item} onPress={() => onPressThread(thread.id)}>
-          <Text style={styles.title}>{thread.title}</Text>
-          <Text style={styles.meta}>#{thread.id}</Text>
-        </Pressable>
-      ))}
+      {threads.map((thread) => {
+        const dateStr = thread.createdAt
+          ? new Date(thread.createdAt).toLocaleDateString()
+          : "";
+
+        return (
+          <Pressable
+            key={thread.id}
+            style={({ pressed }) => [
+              styles.item,
+              { borderColor: colors.line, backgroundColor: colors.surfacePanel },
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={() => onPressThread(thread.id)}
+          >
+            <Text
+              numberOfLines={1}
+              style={[styles.title, { color: colors.textPrimary }]}
+            >
+              {thread.pinned ? "\uD83D\uDCCC " : ""}
+              {thread.title || "\uC0C8 \uCC44\uD305"}
+            </Text>
+            {dateStr ? (
+              <Text style={[styles.meta, { color: colors.textMuted }]}>
+                {dateStr}
+              </Text>
+            ) : null}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -28,12 +55,9 @@ const styles = StyleSheet.create({
   wrap: { gap: 8 },
   item: {
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     borderRadius: 12,
-    backgroundColor: "#fff",
     padding: 12,
   },
-  title: { color: "#0f172a", fontSize: 14, fontWeight: "600" },
-  meta: { color: "#64748b", fontSize: 11, marginTop: 4 },
-  empty: { color: "#64748b", fontSize: 13 },
+  title: { fontSize: 15, fontWeight: "600" },
+  meta: { fontSize: 12, marginTop: 4 },
 });

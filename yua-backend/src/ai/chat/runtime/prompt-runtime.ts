@@ -185,10 +185,23 @@ function trimByTokenBudget(text: string, maxTokens: number): string {
   const tokens = estimateTokens(text);
   if (tokens <= maxTokens) return text;
 
-  // Smart trim: keep beginning (system rules) AND end (recent context)
-  const halfBudget = Math.floor(maxTokens * 4 / 2);
-  const head = text.slice(0, halfBudget);
-  const tail = text.slice(-halfBudget);
+  // Prioritize tail (newest context) 70% over head (oldest) 30%
+  const headTokenBudget = Math.floor(maxTokens * 0.3);
+  const tailTokenBudget = maxTokens - headTokenBudget;
+
+  // Use conservative 2 chars/token for mixed Korean/English
+  let headEnd = Math.min(text.length, headTokenBudget * 2);
+  while (headEnd > 0 && estimateTokens(text.slice(0, headEnd)) > headTokenBudget) {
+    headEnd = Math.floor(headEnd * 0.8);
+  }
+
+  let tailStart = Math.max(0, text.length - tailTokenBudget * 2);
+  while (tailStart < text.length && estimateTokens(text.slice(tailStart)) > tailTokenBudget) {
+    tailStart = Math.floor(tailStart + (text.length - tailStart) * 0.2);
+  }
+
+  const head = text.slice(0, headEnd);
+  const tail = text.slice(tailStart);
   return head + "\n\n(...middle context truncated...)\n\n" + tail;
 }
 
@@ -196,16 +209,28 @@ function trimByTokenBudget(text: string, maxTokens: number): string {
  * Sanitize external data before embedding in system prompt.
  * Strips potential prompt injection patterns.
  */
-export function sanitizeToolOutput(raw: unknown): string {
-  const text = typeof raw === "string" ? raw : JSON.stringify(raw ?? "");
+function stripInjectionPatterns(text: string): string {
   return text
     // Strip common injection patterns
     .replace(/\[(?:SYSTEM|INSTRUCTION|RULE|IMPORTANT|OVERRIDE|IGNORE)[^\]]*\]/gi, "[REDACTED]")
     .replace(/(?:ignore|disregard|forget)\s+(?:above|previous|all)\s+(?:instructions?|rules?|prompts?)/gi, "[REDACTED]")
     .replace(/you\s+are\s+now\b/gi, "[REDACTED]")
     .replace(/(?:^|\n)\s*(?:system|developer|admin)\s*:/gi, "\n[REDACTED]:")
-    // Limit length per field
-    .slice(0, 2000);
+    // Model-specific control tokens
+    .replace(/\[INST\]/gi, "[REDACTED]")
+    .replace(/<\|(?:im_start|im_end|system|endoftext)\|>/gi, "[REDACTED]")
+    .replace(/<<\s*SYS\s*>>/gi, "[REDACTED]");
+}
+
+export function sanitizeToolOutput(raw: unknown): string {
+  const text = typeof raw === "string" ? raw : JSON.stringify(raw ?? "");
+  return stripInjectionPatterns(text).slice(0, 2000);
+}
+
+export function sanitizeExternalBlock(raw: unknown, maxLen = 2500): string {
+  const text = typeof raw === "string" ? raw : JSON.stringify(raw ?? "");
+  const cleaned = stripInjectionPatterns(text).slice(0, maxLen);
+  return `<external_data>\n${cleaned}\n</external_data>`;
 }
 
 function renderTrustedFacts(

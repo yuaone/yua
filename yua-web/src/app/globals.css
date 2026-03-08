@@ -224,6 +224,8 @@
       line-height: 1.6;
      color: var(--text-secondary);
       background-color: var(--app-bg);
+      font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont,
+        'Segoe UI', 'Noto Sans KR', sans-serif;
     }
 html.dark body { color: var(--text-secondary); }
 
@@ -1614,7 +1616,7 @@ html[data-thinking-docked="1"] .assistant-content {
     background: rgba(0,0,0,0.03);
   }
   .chat-markdown .md-tr:active .md-td{
-    transform: translateY(0.5px);
+    opacity: 0.85;
   }
 
   .chat-markdown .md-tr:last-child .md-td{
@@ -1623,7 +1625,7 @@ html[data-thinking-docked="1"] .assistant-content {
 
   @media (prefers-reduced-motion: reduce){
     .chat-markdown .md-tr{ transition: none; }
-    .chat-markdown .md-tr:active .md-td{ transform: none; }
+    .chat-markdown .md-tr:active .md-td{ opacity: 1; }
   }
 
   /* Dark mode table */
@@ -3498,6 +3500,42 @@ html.dark .yua-step-ascii-pre {
   border: 1px solid rgba(255,255,255,0.10);
   background: #1b1b1b;
   color: var(--text-primary);
+}
+
+/* Tool badge & params code block */
+.yua-tool-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: rgba(99,102,241,0.1);
+  color: #6366f1;
+  margin-bottom: 6px;
+}
+html.dark .yua-tool-badge {
+  background: rgba(99,102,241,0.2);
+  color: #a5b4fc;
+}
+
+.yua-tool-params-pre {
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.04);
+  color: #374151;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  max-height: 200px;
+  overflow-y: auto;
+}
+html.dark .yua-tool-params-pre {
+  background: rgba(255,255,255,0.06);
+  color: #d1d5db;
 }
 
 /* =========================

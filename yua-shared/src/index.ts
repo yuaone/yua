@@ -29,3 +29,8 @@ export * from "./tool/yua-tool-result.types";
 export * from "./tool/yua-execution-plan.types";
 export * from "./tool/tool-artifact.types";
 export * from "./quant/quant-types";
+// 🔹 Admin/IAM
+export * from "./admin/admin-types";
+export * from "./admin/support-types";
+// 🔹 Billing
+export * from "./billing/billing-types";

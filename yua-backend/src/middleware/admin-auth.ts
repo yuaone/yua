@@ -44,13 +44,19 @@ export function adminAuth(
     // -------------------------------------------------------------
     // 2) Key 검증
     // -------------------------------------------------------------
-    if (key !== process.env.SUPERADMIN_KEY) {
+    const expectedKey = process.env.SUPERADMIN_KEY || "";
+    const keyBuf = Buffer.from(String(key));
+    const expectedBuf = Buffer.from(expectedKey);
+    const keyMatch = keyBuf.length === expectedBuf.length &&
+      require("crypto").timingSafeEqual(keyBuf, expectedBuf);
+
+    if (!keyMatch) {
       AuditEngine.record({
         route: "/middleware/admin-auth",
         method: "BLOCK",
         userId: 0,
         ip: String(remoteIp),
-        requestData: { reason: "INVALID_KEY", attempt: String(key) },
+        requestData: { reason: "INVALID_KEY" },
         responseData: { blocked: true }
       });
 

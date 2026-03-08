@@ -914,7 +914,22 @@ const { changed } = applyStreamEvent("token", {
               });
               const id = assistantIdRef.current;
               if (!id) return; // ✅ TS + 런타임 SSOT
-  const session = sessionStore.getState().session;
+
+              const session = sessionStore.getState().session;
+              const profile = session.thinkingProfile ?? session.mode;
+
+              // 🔥 FIX: NORMAL 모드에서는 절대 answer unlock gate를 기다리지 않는다
+              if (profile !== "DEEP") {
+                const delta0 = normalizeStreamingArtifacts(clean, true);
+                const delta = normalizeStreamingMarkdownDelta(
+                  assistantTailRef.current,
+                  delta0
+                );
+
+                patchAssistant(id, delta, { streaming: true });
+                bumpTail(delta);
+                return;
+              }
   const effective = (session.thinkingProfile ?? session.mode);
 
  // 🔒 SSOT:

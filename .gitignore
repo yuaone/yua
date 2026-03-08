@@ -69,3 +69,10 @@ screen/
 # Git backups
 .git-backup/
 yua-mobile/pnpm-lock.yaml
+
+# SDK deploy tokens (CLAUDE.md with hardcoded tokens)
+yua-sdk/CLAUDE.md
+yua-sdk-python/CLAUDE.md
+
+# Claude Code
+.claude/

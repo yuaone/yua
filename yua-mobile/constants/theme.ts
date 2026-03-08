@@ -121,6 +121,10 @@ export const lightColors = {
   drawerBg: "#ffffff",
   drawerHandleIndicator: "rgba(0,0,0,0.15)",
   chunkCardBg: "rgba(0,0,0,0.03)",
+  toolBadgeBg: "rgba(99,102,241,0.1)",
+  toolBadgeColor: "#6366f1",
+  codeBlockBg: "rgba(0,0,0,0.04)",
+  codeBlockText: "#374151",
   skeletonBg: "rgba(0,0,0,0.06)",
   summariesTitleColor: "#9ca3af",
 
@@ -166,6 +170,34 @@ export const lightColors = {
   introLogoInnerBorder: "#cbd5f5",
   introLogoInnerBg: "#f8fafc",
   introLogoText: "#0f172a",
+
+  // Avatar
+  avatarBg: "#0f172a",
+  avatarText: "#ffffff",
+
+  // Quick prompt
+  quickPromptBg: "#f8f8f8",
+  quickPromptBorder: "rgba(0,0,0,0.06)",
+  quickPromptText: "#374151",
+
+  // Search bar
+  searchBarBg: "#f4f4f4",
+  searchBarBorder: "rgba(0,0,0,0.08)",
+  searchHighlight: "#fef08a",
+
+  // Time group
+  timeGroupLabel: "#9ca3af",
+
+  // Voice
+  voiceWaveform: "#6366f1",
+  voiceRecordBg: "#fef2f2",
+
+  // Action sheet
+  actionSheetBg: "#ffffff",
+  actionSheetDestructive: "#dc2626",
+
+  // Active indicator
+  activeIndicator: "#6366f1",
 };
 
 export const darkColors: typeof lightColors = {
@@ -278,6 +310,10 @@ export const darkColors: typeof lightColors = {
   drawerBg: "#1a1a1a",
   drawerHandleIndicator: "rgba(255,255,255,0.15)",
   chunkCardBg: "rgba(255,255,255,0.04)",
+  toolBadgeBg: "rgba(99,102,241,0.2)",
+  toolBadgeColor: "#a5b4fc",
+  codeBlockBg: "rgba(255,255,255,0.06)",
+  codeBlockText: "#d1d5db",
   skeletonBg: "rgba(255,255,255,0.06)",
   summariesTitleColor: "#6b7280",
 
@@ -323,6 +359,34 @@ export const darkColors: typeof lightColors = {
   introLogoInnerBorder: "rgba(255,255,255,0.15)",
   introLogoInnerBg: "#1a1a1a",
   introLogoText: "#f5f5f5",
+
+  // Avatar
+  avatarBg: "#f5f5f5",
+  avatarText: "#111111",
+
+  // Quick prompt
+  quickPromptBg: "#1e1e1e",
+  quickPromptBorder: "rgba(255,255,255,0.08)",
+  quickPromptText: "#d1d5db",
+
+  // Search bar
+  searchBarBg: "#1e1e1e",
+  searchBarBorder: "rgba(255,255,255,0.08)",
+  searchHighlight: "#854d0e",
+
+  // Time group
+  timeGroupLabel: "#6b7280",
+
+  // Voice
+  voiceWaveform: "#818cf8",
+  voiceRecordBg: "rgba(239,68,68,0.1)",
+
+  // Action sheet
+  actionSheetBg: "#2a2a2a",
+  actionSheetDestructive: "#f87171",
+
+  // Active indicator
+  activeIndicator: "#818cf8",
 };
 
 export type ThemeColors = typeof lightColors;

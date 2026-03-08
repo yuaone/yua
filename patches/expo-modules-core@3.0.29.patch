@@ -1,0 +1,82 @@
+diff --git a/android/ExpoModulesCorePlugin.gradle b/android/ExpoModulesCorePlugin.gradle
+index 00bebb711260e157811d55931520030f3e10ab21..e554014098a7cf339d55e36604b8fbeec9f7ac62 100644
+--- a/android/ExpoModulesCorePlugin.gradle
++++ b/android/ExpoModulesCorePlugin.gradle
+@@ -89,17 +89,21 @@ ext.useExpoPublishing = {
+   }
+ 
+   project.afterEvaluate {
+-    publishing {
+-      publications {
+-        release(MavenPublication) {
+-          from components.release
++    try {
++      publishing {
++        publications {
++          release(MavenPublication) {
++            from components.release
++          }
+         }
+-      }
+-      repositories {
+-        maven {
+-          url = mavenLocal().url
++        repositories {
++          maven {
++            url = mavenLocal().url
++          }
+         }
+       }
++    } catch (Exception e) {
++      project.logger.warn("Skipping maven publishing for ${project.name}: ${e.message}")
+     }
+   }
+ }
+diff --git a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/ProjectConfiguration.kt b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/ProjectConfiguration.kt
+index 7c2206904731d543dd3c59664edf2c4544fd835b..0733ba3776a4645b42a289f2077807c37a50b93d 100644
+--- a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/ProjectConfiguration.kt
++++ b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/ProjectConfiguration.kt
+@@ -78,22 +78,28 @@ internal fun Project.applyPublishing(expoModulesExtension: ExpoModuleExtension)
+     .applyPublishingVariant()
+ 
+   afterEvaluate {
+-    val publicationInfo = PublicationInfo(this)
+-
+-    publishingExtension()
+-      .publications
+-      .createReleasePublication(publicationInfo)
+-
+-    createExpoPublishToMavenLocalTask(publicationInfo, expoModulesExtension)
+-
+-    val npmLocalRepositoryRelativePath = "local-maven-repo"
+-    val npmLocalRepository = File("${project.projectDir.parentFile}/${npmLocalRepositoryRelativePath}").toURI()
+-    publishingExtension().repositories.mavenLocal { mavenRepo ->
+-      mavenRepo.name = "NPMPackage"
+-      mavenRepo.url = npmLocalRepository
++    try {
++      val publicationInfo = PublicationInfo(this)
++
++      publishingExtension()
++        .publications
++        .createReleasePublication(publicationInfo)
++
++      createExpoPublishToMavenLocalTask(publicationInfo, expoModulesExtension)
++
++      val npmLocalRepositoryRelativePath = "local-maven-repo"
++      val npmLocalRepository = File("${project.projectDir.parentFile}/${npmLocalRepositoryRelativePath}").toURI()
++      publishingExtension().repositories.mavenLocal { mavenRepo ->
++        mavenRepo.name = "NPMPackage"
++        mavenRepo.url = npmLocalRepository
++      }
++
++      createExpoPublishTask(publicationInfo, expoModulesExtension, npmLocalRepositoryRelativePath)
++    } catch (e: Exception) {
++      logger.warn("Skipping maven publishing for ${project.name}: ${e.message}")
++      createEmptyExpoPublishTask()
++      createEmptyExpoPublishToMavenLocalTask()
+     }
+-
+-    createExpoPublishTask(publicationInfo, expoModulesExtension, npmLocalRepositoryRelativePath)
+   }
+ }
+ 

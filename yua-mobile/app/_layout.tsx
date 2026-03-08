@@ -5,10 +5,11 @@ import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { MobileAuthProvider } from "@/contexts/MobileAuthContext";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { useTheme } from "@/hooks/useTheme";
 
 export const unstable_settings = {
-  anchor: "(authed)",
+  initialRouteName: "index",
 };
 
 export default function RootLayout() {
@@ -17,17 +18,19 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
-        <MobileAuthProvider>
-          <Stack>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="intro/index" options={{ headerShown: false }} />
-            <Stack.Screen name="auth/index" options={{ headerShown: false }} />
-            <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
-            <Stack.Screen name="legal/terms/index" options={{ headerShown: false }} />
-            <Stack.Screen name="legal/privacy/index" options={{ headerShown: false }} />
-            <Stack.Screen name="(authed)" options={{ headerShown: false }} />
-          </Stack>
-        </MobileAuthProvider>
+        <ErrorBoundary>
+          <MobileAuthProvider>
+            <Stack>
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="intro/index" options={{ headerShown: false }} />
+              <Stack.Screen name="auth/index" options={{ headerShown: false }} />
+              <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
+              <Stack.Screen name="legal/terms/index" options={{ headerShown: false }} />
+              <Stack.Screen name="legal/privacy/index" options={{ headerShown: false }} />
+              <Stack.Screen name="(authed)" options={{ headerShown: false }} />
+            </Stack>
+          </MobileAuthProvider>
+        </ErrorBoundary>
         <StatusBar style={isDark ? "light" : "dark"} />
       </ThemeProvider>
     </GestureHandlerRootView>

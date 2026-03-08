@@ -158,15 +158,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.06)",
   },
   image: {
-    width: 80,
-    height: 80,
+    width: 72,
+    height: 72,
     borderRadius: 10,
     backgroundColor: "#f1f5f9",
     margin: 4,
   },
   fileCard: {
-    width: 80,
-    height: 80,
+    width: 72,
+    height: 72,
     borderRadius: 10,
     backgroundColor: "#f8fafc",
     alignItems: "center",
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   fileName: {
     fontSize: 10,
     color: "#475569",
-    maxWidth: 68,
+    maxWidth: 60,
   },
   fileNameDark: {
     color: "#d1d5db",

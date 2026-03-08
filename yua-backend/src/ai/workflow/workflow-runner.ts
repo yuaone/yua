@@ -67,7 +67,9 @@ export class WorkflowRunner {
         // -------------------------------------------------
         case "condition":
           try {
-            const cond = Boolean(eval(data.condition ?? "false"));
+            // Safety: evaluate condition without eval() — sandbox 교체 예정
+            const condStr = (data.condition ?? "false").trim().toLowerCase();
+            const cond = condStr === "true";
             output = {
               ok: true,
               value: cond,

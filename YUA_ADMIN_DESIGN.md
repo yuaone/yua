@@ -1,5 +1,9 @@
 # YUA Admin + Support AI 설계 문서
 
+> **DEPRECATED (2026-03-08)** — 이 문서는 `YUA_PLATFORM_ADMIN_DESIGN.md`로 대체되었습니다.
+> yua-console → yua-platform + yua-admin 분리 결정에 따라, Admin/Support AI 설계는
+> PLATFORM_ADMIN 문서가 SSOT입니다. 이 문서는 참고용으로만 유지합니다.
+>
 > 작성일: 2026-03-07
 > 대상 패키지: yua-console (Admin UI), yua-backend (API), yua-shared (타입 SSOT)
 
@@ -29,37 +33,37 @@
                                     SendGrid]         LLM Pipeline]
 ```
 
-### Admin 구역 (yua-console 확장)
+  ### Admin 구역 (yua-console 확장)
 
-```
-yua-console (Next.js 15 App Router)
-  /admin                      -- Admin 대시보드 (시스템 상태)
-  /admin/users                -- 사용자 관리
-  /admin/workspaces           -- 워크스페이스 관리
-  /admin/threads              -- 채팅/스레드 모니터링
-  /admin/system               -- PM2, DB, API 상태
-  /admin/models               -- AI 모델 설정
-  /admin/billing              -- 결제/구독 관리
-  /admin/support              -- Support AI 대시보드
-  /admin/support/tickets      -- 티켓 목록
-  /admin/support/settings     -- FAQ/에스컬레이션 설정
-```
+  ```
+  yua-console (Next.js 15 App Router)
+    /admin                      -- Admin 대시보드 (시스템 상태)
+    /admin/users                -- 사용자 관리
+    /admin/workspaces           -- 워크스페이스 관리
+    /admin/threads              -- 채팅/스레드 모니터링
+    /admin/system               -- PM2, DB, API 상태
+    /admin/models               -- AI 모델 설정
+    /admin/billing              -- 결제/구독 관리
+    /admin/support              -- Support AI 대시보드
+    /admin/support/tickets      -- 티켓 목록
+    /admin/support/settings     -- FAQ/에스컬레이션 설정
+  ```
 
-### Support AI 파이프라인 구역
+  ### Support AI 파이프라인 구역
 
-```
-[수신]                    [처리]                    [발송]
-Gmail API Webhook    ->  Email Ingestion Worker   ->  분류/파싱
-                              |
-                         Support AI Engine
-                         (FAQ 검색 + LLM 초안)
-                              |
-                    +----+----+----+
-                    |              |
-              [자동 발송]    [관리자 큐]
-              (confidence    (Admin UI에서
-               >= 0.9)       승인/수정/발송)
-```
+  ```
+  [수신]                    [처리]                    [발송]
+  Gmail API Webhook    ->  Email Ingestion Worker   ->  분류/파싱
+                                |
+                          Support AI Engine
+                          (FAQ 검색 + LLM 초안)
+                                |
+                      +----+----+----+
+                      |              |
+                [자동 발송]    [관리자 큐]
+                (confidence    (Admin UI에서
+                >= 0.9)       승인/수정/발송)
+  ```
 
 ---
 

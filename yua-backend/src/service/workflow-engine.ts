@@ -174,7 +174,8 @@ async function runApiNode(node: FlowNode) {
 
 async function runConditionNode(node: FlowNode, prevOutput: any) {
   try {
-    const cond = eval(node.condition || "false");
+    // Safety: evaluate condition as a simple boolean expression (no eval)
+    const cond = node.condition === "true" ? true : false;
 
     return {
       condition: cond,

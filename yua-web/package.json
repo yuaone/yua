@@ -37,7 +37,7 @@
     "katex": "^0.16.27",
     "lib0": "^0.2.117",
     "lowlight": "^3.3.0",
-    "lucide-react": "^0.562.0",
+    "lucide-react": "^0.577.0",
     "mermaid": "^11.12.3",
     "next": "14.2.35",
     "prismjs": "^1.30.0",

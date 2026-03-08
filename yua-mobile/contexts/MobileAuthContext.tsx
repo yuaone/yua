@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren,
 } from "react";
@@ -94,8 +95,11 @@ export function MobileAuthProvider({ children }: PropsWithChildren) {
     [auth]
   );
 
-  const syncMe = useCallback(
-    async (user?: User | null) => {
+  // Dedup: prevent concurrent syncMe calls (race between onIdTokenChanged + signInWithGoogleToken)
+  const syncMeInFlightRef = useRef<Promise<MobileAuthProfile | null> | null>(null);
+
+  const syncMeCore = useCallback(
+    async (user?: User | null): Promise<MobileAuthProfile | null> => {
       const current = user ?? auth?.currentUser;
       if (!current) {
         setProfile(null);
@@ -104,12 +108,28 @@ export function MobileAuthProvider({ children }: PropsWithChildren) {
       }
 
       const token = await current.getIdToken(true);
-      const res = await fetch(resolveApiUrl("/me"), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-      });
+
+      // Timeout: 10s — prevent infinite hang when server unreachable
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+
+      let res: Response;
+      try {
+        res = await fetch(resolveApiUrl("/me"), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+          signal: controller.signal,
+        });
+      } catch (fetchErr: any) {
+        clearTimeout(timeout);
+        if (fetchErr?.name === "AbortError") {
+          throw new Error("ME_SYNC_TIMEOUT");
+        }
+        throw fetchErr;
+      }
+      clearTimeout(timeout);
 
       if (!res.ok) {
         throw new Error(`ME_SYNC_FAILED:${res.status}`);
@@ -141,6 +161,21 @@ export function MobileAuthProvider({ children }: PropsWithChildren) {
       return next;
     },
     [auth, computeAuthedState]
+  );
+
+  const syncMe = useCallback(
+    async (user?: User | null): Promise<MobileAuthProfile | null> => {
+      // If a syncMe is already in progress, return existing promise (dedup)
+      if (syncMeInFlightRef.current) {
+        return syncMeInFlightRef.current;
+      }
+      const promise = syncMeCore(user).finally(() => {
+        syncMeInFlightRef.current = null;
+      });
+      syncMeInFlightRef.current = promise;
+      return promise;
+    },
+    [syncMeCore]
   );
 
   const loginWithEmail = useCallback(
@@ -304,24 +339,27 @@ export function MobileAuthProvider({ children }: PropsWithChildren) {
       try {
         if (firebaseAuth.currentUser?.isAnonymous) {
           await linkWithCredential(firebaseAuth.currentUser, credential);
-          return;
+        } else {
+          await signInWithCredential(firebaseAuth, credential);
         }
-        await signInWithCredential(firebaseAuth, credential);
-        await syncMe(firebaseAuth.currentUser);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (message.includes("auth/credential-already-in-use")) {
           await signOut(firebaseAuth);
           await signInWithCredential(firebaseAuth, credential);
-          return;
+        } else {
+          setError(message);
+          setState("error");
+          throw err;
         }
-        setError(message);
-        setState("error");
-        throw err;
       }
+
+      // syncMe is handled by onIdTokenChanged listener — wait for it to complete
+      // The dedup ref ensures only one syncMe runs even if both paths trigger it
+      await syncMe(firebaseAuth.currentUser);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [auth]
+    [auth, syncMe]
   );
 
   const signInWithGoogle = useCallback(async () => {
@@ -355,7 +393,7 @@ export function MobileAuthProvider({ children }: PropsWithChildren) {
         if (cached?.userId) {
           setProfile({
             user: {
-              id: Number(cached.userId) || 0,
+              id: cached.userId ?? "",
               email: cached.email,
             },
             workspace: cached.workspaceId ? { id: cached.workspaceId } : null,
@@ -380,7 +418,7 @@ export function MobileAuthProvider({ children }: PropsWithChildren) {
       if (cached?.userId) {
         setProfile({
           user: {
-            id: Number(cached.userId) || 0,
+            id: cached.userId ?? "",
             email: cached.email,
           },
           workspace: cached.workspaceId ? { id: cached.workspaceId } : null,

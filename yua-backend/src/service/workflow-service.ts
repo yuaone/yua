@@ -69,12 +69,10 @@ ${node.input}
      * ────────────────────────────────────────── */
     if (type === "condition") {
       try {
-        const cond = `
-          const output = \`${lastOutput}\`;
-          ${node.condition}
-        `;
-
-        const pass = eval(cond); // 이후 sandbox 교체 예정 (정원님 계획)
+        // Safety: evaluate condition without eval() — sandbox 교체 전 임시 안전 처리
+        const conditionStr = (node.condition || "false").trim().toLowerCase();
+        const pass = conditionStr === "true" ||
+          (conditionStr.startsWith("output") && lastOutput && lastOutput.trim().length > 0);
         lastOutput = pass
           ? `조건=true → 다음: ${node.trueNext}`
           : `조건=false → 다음: ${node.falseNext}`;

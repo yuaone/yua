@@ -164,75 +164,41 @@ const latestReasoningChunk = session.chunks
   .filter((c) => isReasoningKind(c.kind))
   .slice(-1)[0] ?? null;
 const [displayText, setDisplayText] = useState("");
-const typingRef = useRef<number | null>(null);
 const lastChunkIdRef = useRef<string | null>(null);
+const prevSourceRef = useRef("");
 
 useEffect(() => {
   if (!latestReasoningChunk) return;
 
-  const chunkId = latestReasoningChunk.chunkId;
   const title = latestReasoningChunk.title?.trim() ?? "";
   const body = latestReasoningChunk.body?.trim() ?? "";
   const inline = latestReasoningChunk.inline?.trim() ?? "";
 
   let raw = inline.length > 0 ? inline : body;
-  // Strip title from start of body/inline to prevent title being typed inline
+
   if (title && raw.startsWith(title)) {
     raw = raw.slice(title.length).replace(/^[\s\n:：\-]+/, "");
   }
+
   const source = raw.replace(/\s+/g, " ").trim();
+
   if (!source) return;
 
-  // 🔥 새 청크 감지 → 초기화
-  if (lastChunkIdRef.current !== chunkId) {
-    lastChunkIdRef.current = chunkId;
+  // reset when new chunk
+  if (latestReasoningChunk.chunkId !== lastChunkIdRef.current) {
+    lastChunkIdRef.current = latestReasoningChunk.chunkId;
+    prevSourceRef.current = "";
     setDisplayText("");
   }
 
-  // 🔥 기존 타이핑 중지
-  if (typingRef.current) {
-    clearInterval(typingRef.current);
-  }
+  const prev = prevSourceRef.current;
+  const delta = source.slice(prev.length);
 
-  const totalLength = source.length;
+  if (!delta) return;
 
-  const typeNext = () => {
-    setDisplayText((prev) => {
-      const nextLength = prev.length + 1;
+  prevSourceRef.current = source;
 
-      if (nextLength > totalLength) {
-        return prev;
-      }
-
-      const progress = nextLength / totalLength;
-
-      let delay = 42; // 🔥 기본 속도: 사람 타이핑처럼 약간 더 느리게
-
-      // 🔥 1️⃣ 첫 10글자 빠르게
-      if (nextLength <= 10) {
-        delay = 28; // 🔥 초반 가속 완화
-      }
-      // 🔥 3️⃣ 마지막 15%는 느리게
-      else if (progress > 0.85) {
-        delay = 72; // 🔥 마무리 더 천천히
-      }
-      const nextChar = source[nextLength - 1];
-
-      // 🔥 4️⃣ 마침표 만나면 pause
-      if (nextChar === ".") {
-        delay = 280; // 🔥 문장 끝 pause 강화
-      }
-      typingRef.current = window.setTimeout(typeNext, delay);
-
-      return source.slice(0, nextLength);
-    });
-  };
-
- typingRef.current = window.setTimeout(typeNext, 36);
-
-  return () => {
-    if (typingRef.current) clearTimeout(typingRef.current);
-  };
+  setDisplayText((prevText) => prevText + delta);
 }, [latestReasoningChunk?.body, latestReasoningChunk?.inline, latestReasoningChunk?.chunkId]);
 
 const nowTs = Date.now();

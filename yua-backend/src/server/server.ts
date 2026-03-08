@@ -55,12 +55,26 @@ app.use(
   helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
   })
 );
 
 app.use(
   cors({
-    origin: "*",
+    origin: [
+      "https://yuaone.com",
+      "https://www.yuaone.com",
+      "https://platform.yuaone.com",
+      "https://admin.yuaone.com",
+      "http://localhost:3000",
+      "http://localhost:3100",
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://34.50.27.221:5173",
+      "http://34.50.27.221:5174",
+    ],
+    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   })
 );

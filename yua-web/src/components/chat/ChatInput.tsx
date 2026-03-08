@@ -282,8 +282,8 @@ useEffect(() => {
     const next: Attachment[] = Array.from(files).map((file, idx) => ({
       id: `${now}-${idx}-${Math.random().toString(16).slice(2)}`,
       file,
-      kind: file.type.startsWith("image/") ? "image" : "file",
-      previewUrl: file.type.startsWith("image/")
+      kind: (file.type.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(file.name)) ? "image" : "file",
+      previewUrl: (file.type.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(file.name))
         ? URL.createObjectURL(file)
         : undefined,
         status: "idle",
@@ -532,6 +532,7 @@ if (!res.ok) {
       setAttachments([]);
     } finally {
       setSending(false);
+      setUploading(false);
       sendLockRef.current = false; // 🔥 LOCK RELEASE
     }
  
@@ -612,18 +613,24 @@ if (!res.ok) {
           />
         ) : (
           <>
-            {/* Attachment preview */}
-            {attachments.length > 0 && (
-              <div className="w-full px-4 pt-4">
-                <AttachmentPreview
-                  attachments={attachments}
-                  uploadProgress={uploadProgress}
-                  onRemove={removeAttachment}
-                  onReplace={replaceAttachment}
-                />
-              </div>
-            )}
-
+ {attachments.length > 0 && (
+   <div
+     className="
+       flex flex-wrap
+       gap-2
+       px-3 pt-3 pb-1
+       max-w-full
+       overflow-x-hidden
+     "
+   >
+     <AttachmentPreview
+       attachments={attachments}
+       uploadProgress={uploadProgress}
+       onRemove={removeAttachment}
+       onReplace={replaceAttachment}
+     />
+   </div>
+ )}
             {/* Plus */}
             <div className="absolute left-3 bottom-3 z-40">
               <div className="relative">
@@ -718,7 +725,7 @@ if (!res.ok) {
                 className="
                   w-full resize-none bg-transparent
                   pl-12 pr-12
-                  pt-[22px]
+                  pt-[16px]
                   pb-[18px]
                   min-h-[72px]
                   max-lg:pt-[16px]

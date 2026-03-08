@@ -48,6 +48,8 @@ import type { ActivitySnapshot }
   import { ReasoningSessionController } from "../reasoning/reasoning-session-controller";
   import { translateReasoning } from "../translator/reasoning-translator.client";
 import { ActivityAggregator } from "./activity-aggregator";
+import { updateConversationSummary } from "../context/updateConversationSummary";
+import { fetchRecentChatMessages } from "../../db/pg-readonly";
 import { OpenAIVisionProvider } from "../vision/openai-vision.provider";
 import { runFileAnalysis } from "../yua-tools/yua-file-analyzer";
 import { readFile as fsReadFile } from "fs/promises";
@@ -92,6 +94,10 @@ type ExecuteOpts = {
     mimeType?: string;
   }[];
   userProfile?: string | null;
+  /** Raw user message (before prompt compilation). Used for intent detection. */
+  rawUserMessage?: string;
+  /** Memory intent from decision orchestrator */
+  memoryIntent?: string;
 };
 
     /* ==================================================
@@ -425,10 +431,13 @@ function normalizeToolPayload(
         let acquired = false;
         let acquiredTier: "FAST" | "NORMAL" | "DEEP" | undefined;
   // 🔥 USAGE GUARD (FREE 5h COOLDOWN)
-  const { rows } = await pgPool.query(
-    `SELECT tier FROM workspace_plan_state WHERE workspace_id = $1 LIMIT 1`,
-    [opts.workspaceId]
-  );
+  // planTier: controller에서 이미 조회해서 전달받음 (중복 DB 쿼리 제거)
+  const tier = (opts as any).planTier ?? "free";
+ // TODO: REMOVE DEV OVERRIDE BEFORE PROD
+// 🔥 DEV OVERRIDE — userId 8은 enterprise 취급
+if (opts.userId === 8) {
+  (opts as any).planTier = "enterprise";
+}
 
  const MESSAGE_LIMIT_BY_TIER: Record<string, number | null> = {
    free: 20,
@@ -438,14 +447,6 @@ function normalizeToolPayload(
  };
 
  const COOLDOWN_HOURS = 5;
-
- const tier = rows?.[0]?.tier ?? "free";
- (opts as any).planTier = tier;
- // TODO: REMOVE DEV OVERRIDE BEFORE PROD
-// 🔥 DEV OVERRIDE — userId 8은 enterprise 취급
-if (opts.userId === 8) {
-  (opts as any).planTier = "enterprise";
-}
  const limit = MESSAGE_LIMIT_BY_TIER[tier];
 
  if (limit !== null) {
@@ -545,32 +546,13 @@ if (opts.userId === 8) {
       } = opts;
       let localSeq = 0;
       const nextSeq = () => ++localSeq;
-  // 🔒 SSOT: ComputeGate acquire (ExecutionEngine 단일 소유)
-  if (opts.computeTier) {
-    const gate = await ComputeGate.acquire({
-      threadId,
-      traceId,
-      userId: opts.userId,
-      workspaceId: opts.workspaceId,
-      computeTier: opts.computeTier,
-      planTier: (opts as any).planTier ?? "free",
-    });
-
-    if (!gate.allowed) {
-      console.warn("[COMPUTE_GATE][BLOCKED]", {
-        threadId,
-        reason: gate.reason,
-      });
-
-      throw new Error(`COMPUTE_GATE_BLOCKED:${gate.reason}`);
-    }
-
-    // adaptive downgrade 반영
-    if (gate.downgradedTier) {
-      opts.computeTier = gate.downgradedTier;
-    }
-  }
+  // 🔒 ComputeGate는 controller에서 이미 acquire 완료 (이중 acquire 제거)
+  // controller가 gate 통과 후 computeTier를 넘겨줌
  const normalizedPrompt = normalizePrompt(prompt);
+ // Intent detection should use raw user message only (not full compiled prompt with history)
+ const intentTarget = opts.rawUserMessage
+   ? normalizePrompt(opts.rawUserMessage)
+   : normalizedPrompt;
 
  // 🔥 SSOT: language hint is locked from FIRST user message only
  const initialUserLang =
@@ -635,8 +617,9 @@ const userLangHint: "ko" | "en" =
     HARD_SEGMENT_CAP += 2;
   }
 
+ // Tool-use needs at least 3: (1) tool request, (2) tool result, (3) retry if empty
  const MAX_TOTAL_EXECUTIONS =
-   opts.deepVariant === "EXPANDED" ? 4 : 2;
+   opts.deepVariant === "EXPANDED" ? 4 : 3;
 let totalExecutions = 0;
 
           /* ============================================
@@ -681,8 +664,8 @@ let totalExecutions = 0;
    opts.path === "SEARCH" || opts.forceSearch === true;
 
  const explicitSearchIntent =
-   /(?:\bsearch (for)?\b|\blook up\b|\bfind (me|out)?\b|검색해|검색 좀|검색해줘|찾아봐|찾아줘)/i
-     .test(normalizedPrompt.trim());
+   /(?:\bsearch\s*(for)?\b|\blook\s*up\b|\bfind\s*(me|out)?\b|검색\s?해|검색\s?좀|검색해줘|검색해봐|찾아봐|찾아줘|찾아보다|서치)/i
+     .test(intentTarget.trim());
 
         const allowWebSearch =
           // ✅ NORMAL에서도 "SEARCH path/명시 검색 의도"면 web search 허용
@@ -704,7 +687,7 @@ const allowCodeInterpreter =
   (opts.attachments?.some(a => a.kind !== "image") ||
    toolGateAllowedTools.includes("OPENAI_CODE_INTERPRETER") ||
    /(?:계산|분석|차트|그래프|시각화|compute|calculate|chart|graph|plot|analyze|visualize)/i
-     .test(normalizedPrompt));
+     .test(intentTarget));
 
 if (allowCodeInterpreter) {
   openaiTools.push({ type: "code_interpreter", container: { type: "auto" } });
@@ -755,9 +738,16 @@ if (hasCsvAttach) {
 }
 
 // quant_analyze: 주식/금융 의도 감지 시 tool 등록
-const quantIntent =
-  /(?:주식|종목|주가|코스피|코스닥|나스닥|다우|S&P|시세|차트|기술적.?분석|RSI|MACD|볼린저|이동평균|Monte\s*Carlo|몬테카를로|시뮬레이션|예측|forecast|변동성|VaR|리스크|stock|ticker|portfolio|sharpe|drawdown)/i
-    .test(normalizedPrompt);
+// Uses intentTarget (raw user message only) to prevent false positives from conversation history
+// Strong keywords (직접 금융): 1개만 매칭돼도 활성화
+// Weak keywords (범용 가능): 2개 이상 매칭돼야 활성화
+const QUANT_STRONG = /(?:주식|종목|주가|코스피|코스닥|나스닥|다우|S&P|시세|RSI|MACD|볼린저|이동평균|Monte\s*Carlo|몬테카를로|VaR|sharpe|drawdown|ticker)/i;
+const QUANT_WEAK = /(?:차트|기술적.?분석|시뮬레이션|예측|forecast|변동성|리스크|stock|portfolio)/gi;
+const quantIntent = (() => {
+  if (QUANT_STRONG.test(intentTarget)) return true;
+  const weakMatches = intentTarget.match(QUANT_WEAK);
+  return (weakMatches?.length ?? 0) >= 2;
+})();
 
 if (quantIntent) {
   functionTools.push({
@@ -992,7 +982,7 @@ const STREAM_ACTIVITY_MS = 320;     // activity 최소 간격
         let reasoningBlockEmitted = false;
         let pendingAnswerUnlock = false;
         let answerUnlockGraceTimer: NodeJS.Timeout | null = null;
-        const ANSWER_UNLOCK_GRACE_MS = 900; // reasoning이 안 오면 여기서 강제 unlock
+        const ANSWER_UNLOCK_GRACE_MS = 2000; // reasoning이 안 오면 여기서 강제 unlock
         let reasoningDone = false;
         let reasoningDoneEmitted = false;
         let lastReasoningBlockId: string | null = null;
@@ -2510,6 +2500,7 @@ if (toolMessage.length > MAX_TOOL_RESULT_CHARS) {
                     mode,
                     outmode: outmode as any,
                     previousAnswerTail: "",
+                    contextSummary: opts.userProfile?.trim() || undefined,
                   }) +
                   `\n\n[VERIFIER_FAILED]\n` +
                   `Tool: ${String(toolResult.tool ?? "")}\n` +
@@ -2560,6 +2551,7 @@ await publishActivity(StreamStage.THINKING, {
               mode,
               outmode: outmode as any,
               previousAnswerTail: fullAnswer.slice(-1200),
+              contextSummary: opts.userProfile?.trim() || undefined,
             });
             { mode: mode as any }
           } // ✅ while 종료 위치
@@ -2906,6 +2898,39 @@ console.log("[WEB_SOURCES_GENERATED]", {
               turnIntent: StreamEngine.getTurnIntent(threadId),
             });
 
+            // 🔒 SUMMARY: fire-and-forget (non-blocking)
+            fetchRecentChatMessages(threadId, 50)
+              .then((rows) => {
+                const msgs = rows
+                  .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                  .map((r) => `[${r.role}] ${r.content}`);
+                return updateConversationSummary(threadId, msgs);
+              })
+              .catch((e) => {
+                console.warn("[CONVERSATION_SUMMARY][ERROR]", { threadId, error: String(e) });
+              });
+
+            // 🔒 MEMORY PIPELINE: stream end hook
+            try {
+              const { runMemoryPipeline } = await import("../memory/memory-pipeline-runner.js");
+              await runMemoryPipeline({
+                threadId,
+                traceId,
+                userId: String(opts.userId),
+                workspaceId: String(opts.workspaceId),
+                userMessage: opts.rawUserMessage ?? normalizedPrompt,
+                assistantMessage: fullAnswer,
+                mode: mode ?? "NORMAL",
+                memoryIntent: opts.memoryIntent ?? "NONE",
+                reasoning: StreamEngine.getReasoning(threadId) ?? { confidence: 0.5 },
+                executionPlan: undefined,
+                executionResult: undefined,
+                allowMemory: true,
+              });
+            } catch (e) {
+              console.warn("[MEMORY_PIPELINE][STREAM_ERROR]", { threadId, error: String(e) });
+            }
+
             // 🔒 3️⃣ DONE (transport 종료, SSE close)
             await StreamEngine.publishDone(threadId, {
               traceId,
@@ -2915,6 +2940,10 @@ console.log("[WEB_SOURCES_GENERATED]", {
         } catch (err) {
  if ((err as any)?.message === "terminated") {
     console.warn("[STREAM][TERMINATED_SUPPRESSED]");
+    await StreamEngine.finish(threadId, {
+      reason: "error",
+      traceId,
+    });
     return;
   }
   if (answerUnlockGraceTimer) {

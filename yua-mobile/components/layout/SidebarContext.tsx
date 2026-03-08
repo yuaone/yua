@@ -1,10 +1,10 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, type ReactNode } from "react";
 import {
   useSharedValue,
-  withTiming,
-  Easing,
+  withSpring,
   type SharedValue,
 } from "react-native-reanimated";
+import { MobileTokens } from "@/constants/tokens";
 
 /* ==============================
    Types
@@ -24,39 +24,37 @@ const SidebarCtx = createContext<SidebarContextValue | null>(null);
    Provider
 ============================== */
 
-const DURATION = 300;
-const EASING_OPEN = Easing.out(Easing.cubic);
-const EASING_CLOSE = Easing.out(Easing.quad);
+const SPRING_CONFIG = MobileTokens.spring.sidebar;
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const progress = useSharedValue(0);
+  const isOpenRef = useRef(false);
 
-  const openSidebar = () => {
-    progress.value = withTiming(1, {
-      duration: DURATION,
-      easing: EASING_OPEN,
-    });
-  };
+  const openSidebar = useCallback(() => {
+    isOpenRef.current = true;
+    progress.value = withSpring(1, SPRING_CONFIG);
+  }, [progress]);
 
-  const closeSidebar = () => {
-    progress.value = withTiming(0, {
-      duration: DURATION,
-      easing: EASING_CLOSE,
-    });
-  };
+  const closeSidebar = useCallback(() => {
+    isOpenRef.current = false;
+    progress.value = withSpring(0, SPRING_CONFIG);
+  }, [progress]);
 
-  const toggleSidebar = () => {
-    if (progress.value > 0.5) {
+  const toggleSidebar = useCallback(() => {
+    if (isOpenRef.current) {
       closeSidebar();
     } else {
       openSidebar();
     }
-  };
+  }, [openSidebar, closeSidebar]);
+
+  const value = useMemo(
+    () => ({ progress, openSidebar, closeSidebar, toggleSidebar }),
+    [progress, openSidebar, closeSidebar, toggleSidebar]
+  );
 
   return (
-    <SidebarCtx.Provider
-      value={{ progress, openSidebar, closeSidebar, toggleSidebar }}
-    >
+    <SidebarCtx.Provider value={value}>
       {children}
     </SidebarCtx.Provider>
   );

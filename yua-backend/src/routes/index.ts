@@ -3,6 +3,7 @@
 
 import { Router } from "express";
 import { requireFirebaseAuth } from "../auth/auth.express";
+import { requireAuthOrApiKey } from "../auth/auth-or-apikey";
 import { withWorkspace } from "../middleware/with-workspace";
 /* ==============================
    SYSTEM / SECURITY
@@ -24,7 +25,7 @@ import usageRouter from "./usage";
 /* ==============================
    CHAT (SSOT)
 ============================== */
-// 🔥 Firebase ONLY — User Chat Resource
+// 🔥 Firebase + API Key — User Chat Resource
 import chatUserRouter from "./chat-user.router";
 import chatUploadRouter from "./chat-upload.router";
 import projectRouter from "./project.router";
@@ -76,6 +77,7 @@ import attackRouter from "./attack-router";
 import controlRouter from "./control-router";
 import billingRouter from "./billing-router";
 import billingStatusRouter from "./billing-status-router";
+import billingV2Router from "./billing-v2-router";
 import businessRouter from "./business-router";
 import InstanceRouter from "./instance-router";
 import terminalRouter from "./terminal-router";
@@ -98,6 +100,11 @@ import workspaceRouter from "./workspace-router";
 import voiceRouter from "./voice-router";
 import shareRouter from "./share-router";
 import memoryRouter from "./memory-router";
+import { adminRouter } from "./admin-router";
+import supportRouter from "./support-router";
+import platformApiKeysRouter from "./api-keys-router";
+import v1CompletionsRouter from "./v1-completions-router";
+import v1EmbeddingsRouter from "./v1-embeddings-router";
 
 /* ================================================== */
 const router = Router();
@@ -117,6 +124,14 @@ router.use("/key", requireFirebaseAuth, rateLimit, ApiKeyRouter);
 router.use("/dev", requireFirebaseAuth, rateLimit, DevRouter);
 router.use("/superadmin", requireFirebaseAuth, rateLimit, SuperAdminRouter);
 router.use("/audit", requireFirebaseAuth, rateLimit, auditRouter);
+router.use("/admin", adminRouter); // admin-session middleware handles auth internally
+
+/* ==================================================
+   🌐 V1 API (OpenAI-compatible)
+   👉 /api/v1/chat/completions
+================================================== */
+router.use("/v1", v1CompletionsRouter);
+router.use("/v1", v1EmbeddingsRouter);
 
 /* ==================================================
    🔧 ENGINE / DB CONTEXT (🔥 반드시 먼저)
@@ -130,13 +145,13 @@ router.use("/me", meRouter);
 router.use("/usage", requireFirebaseAuth, usageRouter);
 router.use("/workspace/me", workspaceMeRouter);
 /* ==================================================
-   ✅ USER CHAT (Firebase SSOT)
+   ✅ USER CHAT (Firebase + API Key)
    👉 /api/chat/*
 ================================================== */
  // ✅ chatController가 req.workspace를 요구하므로, chat 라우트는 auth 후 withWorkspace를 보장해야 함
- router.use("/chat", requireFirebaseAuth, withWorkspace, chatRouter);
- router.use("/chat", requireFirebaseAuth, chatUserRouter);
- router.use("/chat", requireFirebaseAuth, withWorkspace, chatUploadRouter);
+ router.use("/chat", requireAuthOrApiKey, withWorkspace, chatRouter);
+ router.use("/chat", requireAuthOrApiKey, chatUserRouter);
+ router.use("/chat", requireAuthOrApiKey, withWorkspace, chatUploadRouter);
  
   /* ==================================================
    📊 CHAT TELEMETRY
@@ -231,7 +246,14 @@ router.use("/attack", attackRouter);
 /* BUSINESS */
 router.use("/billing", requireFirebaseAuth, withWorkspace, billingStatusRouter);
 router.use("/billing", requireFirebaseAuth, withWorkspace, billingRouter);
+router.use("/billing", requireFirebaseAuth, withWorkspace, billingV2Router);
 router.use("/business", businessRouter);
+
+/* SUPPORT (User-facing ticket system) */
+router.use("/support", requireFirebaseAuth, withWorkspace, supportRouter);
+
+/* PLATFORM (API Key CRUD + Test Playground) */
+router.use("/platform", requireFirebaseAuth, withWorkspace, platformApiKeysRouter);
 
 /* INSTANCE / FS (auth + rate limit — infrastructure access) */
 router.use("/instance", requireFirebaseAuth, rateLimit, InstanceRouter);

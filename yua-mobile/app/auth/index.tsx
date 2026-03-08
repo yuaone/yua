@@ -21,15 +21,10 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import * as WebBrowser from "expo-web-browser";
-import * as Google from "expo-auth-session/providers/google";
-import { makeRedirectUri } from "expo-auth-session";
-
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useMobileAuth } from "@/contexts/MobileAuthContext";
 import { useTheme } from "@/hooks/useTheme";
 import type { ThemeColors } from "@/constants/theme";
-
-// Complete any pending auth sessions on app launch
-WebBrowser.maybeCompleteAuthSession();
 
 type Mode = "login" | "signup";
 
@@ -114,51 +109,12 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  // expo-auth-session Google OAuth
-  const redirectUri = makeRedirectUri({
-    scheme: "yuamobile",
-  });
-
-  if (__DEV__) {
-    console.log("[AUTH] Google OAuth redirectUri:", redirectUri);
-  }
-
-  const [_request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    redirectUri,
-  });
-
-  // Handle Google OAuth response
+  // @react-native-google-signin/google-signin (네이티브 — Dev Build 필요)
   useEffect(() => {
-    if (!response) return;
-
-    if (response.type === "success") {
-      const idToken = response.authentication?.idToken ?? response.params?.id_token ?? null;
-      if (!idToken) {
-        setError("Google 토큰을 받지 못했습니다. 다시 시도해 주세요.");
-        setGoogleLoading(false);
-        return;
-      }
-
-      (async () => {
-        try {
-          await signInWithGoogleToken(idToken);
-          router.replace("/(authed)/chat");
-        } catch (err) {
-          setError(err instanceof Error ? err.message : "GOOGLE_SIGNIN_FAILED");
-        } finally {
-          setGoogleLoading(false);
-        }
-      })();
-    } else if (response.type === "cancel" || response.type === "dismiss") {
-      setGoogleLoading(false);
-    } else if (response.type === "error") {
-      setError(response.error?.message ?? "Google 로그인에 실패했습니다.");
-      setGoogleLoading(false);
-    }
-  }, [response, signInWithGoogleToken]);
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    });
+  }, []);
 
   const MAX_EMAIL = 255;
   const MAX_NAME = 255;
@@ -210,6 +166,8 @@ export default function AuthScreen() {
       return "Firebase 설정이 필요합니다.";
     if (message.includes("GOOGLE_TOKEN_MISSING"))
       return "Google 토큰이 누락되었습니다.";
+    if (message.includes("ME_SYNC_TIMEOUT"))
+      return "서버 응답 시간 초과. 네트워크를 확인해 주세요.";
     return "인증에 실패했습니다. 입력 정보를 확인해 주세요.";
   }, []);
 
@@ -291,9 +249,24 @@ export default function AuthScreen() {
     setError(null);
     setGoogleLoading(true);
     try {
-      await promptAsync();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Google 로그인에 실패했습니다.");
+      await GoogleSignin.hasPlayServices();
+      const result = await GoogleSignin.signIn();
+      const idToken =
+        (result as any)?.data?.idToken ??
+        (result as any)?.idToken ??
+        null;
+      if (!idToken) {
+        throw new Error("GOOGLE_TOKEN_MISSING");
+      }
+      await signInWithGoogleToken(idToken);
+      // Navigation is also handled by useEffect [ready, state] → authed → chat
+      // But explicit navigate for faster UX
+      router.replace("/(authed)/chat");
+    } catch (err: any) {
+      // Don't show error if user cancelled Google sign-in
+      if (err?.code === "SIGN_IN_CANCELLED" || err?.code === "12501") return;
+      setError(mapAuthError(err));
+    } finally {
       setGoogleLoading(false);
     }
   };

@@ -260,38 +260,43 @@ const canShowPanel =
     Boolean(inlineText) ||
     session.thinking.active;
 
-  const shouldShowTyping =
+  // 🔥 typing 시작 조건: finalized 아님 + DEEP 아님 (hasText는 여기서 제외 — grace period 보장)
+  const shouldStartTyping =
     contract.ui.typingEnabled &&
-    session.streaming &&
-    !session.hasText &&
     !session.finalized &&
- !isDeep;
-
+    !isDeep;
   // 🔥 ChatGPT-style typing 최소 노출 시간 보장 (600ms)
   // timer 기반 state — Date.now() in render 제거 (높이 oscillation 방지)
   const [typingExpired, setTypingExpired] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingStartedRef = useRef(false);
 
   useEffect(() => {
-    if (shouldShowTyping) {
+    if (shouldStartTyping && !session.hasText && !typingStartedRef.current) {
+      // 스트리밍 시작, 아직 텍스트 없음 → 타이핑 시작 (1회만)
+      typingStartedRef.current = true;
       setTypingExpired(false);
       typingTimerRef.current = setTimeout(() => setTypingExpired(true), 600);
-    } else {
+    } else if (!shouldStartTyping) {
+      // finalized 또는 deep → 전부 리셋
+      typingStartedRef.current = false;
       setTypingExpired(false);
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       typingTimerRef.current = null;
     }
+    // hasText가 true로 바뀌어도 timer는 유지 (grace period 보장)
     return () => {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       typingTimerRef.current = null;
     };
-  }, [shouldShowTyping]);
+  }, [shouldStartTyping, session.hasText]);
 
-// typing은 panel이 실제로 렌더 가능할 때만 숨김 (race 방지)
-// 🔥 FIX: panel이 아직 없으면 expired 되어도 typing 유지 (빈 화면 방지)
-const typingVisible =
-  shouldShowTyping &&
-  !(typingExpired && canShowPanel);
+  // typing은 grace period(600ms) 끝나면 숨기되, 실제 콘텐츠 준비됐을 때만
+  const typingVisible =
+    typingStartedRef.current &&
+    !session.finalized &&
+    !isDeep &&
+    !(typingExpired && (hasAnswerTextEffective || session.chunks.length > 0));
   // allow render if finalized deep message
 
   /* =========================

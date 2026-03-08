@@ -98,8 +98,6 @@ function extractMermaidDSL(input: string): string {
        !/^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|mindmap)/i.test(trimmed)
    ) break;
 
-   // 🔥 허용 문자 외 포함 시 종료
-   if (!SAFE_LINE_RE.test(trimmed)) break;
     dsl.push(line);
   }
 
@@ -385,7 +383,7 @@ export default function MermaidRenderer({ code, highlightNodes = [] }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [safeText, highlightNodes, animate]);
+  }, [safeText, highlightNodes, animate, code]);
 
  const handleDownload = () => {
    const svgEl = containerRef.current?.querySelector<SVGSVGElement>("svg");

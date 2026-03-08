@@ -72,14 +72,20 @@ export async function shouldAutoCommitMemory(
   }
 }
 
+  if (
+    candidate.scope === "user_profile" ||
+    candidate.scope === "user_preference"
+  ) {
+    if (candidate.confidence < 0.50) {
+      return reject("low_confidence_for_user_scope", candidate);
+    }
+  }
+
   /* --------------------------------------------------
    * 2️⃣-B Continuity Guard (SSOT)
    * -------------------------------------------------- */
   if (continuity) {
-    if (
-      continuity.contextCarryLevel === "ENTITY" ||
-      (continuity.anchorConfidence ?? 0) < 0.6
-    ) {
+    if ((continuity.anchorConfidence ?? 0) < 0.3) {
       return reject("low_continuity_no_commit", candidate);
     }
   }
@@ -89,7 +95,9 @@ export async function shouldAutoCommitMemory(
    * 3️⃣ Source Guard
    * -------------------------------------------------- */
   if (candidate.source === "passive") {
-    if (candidate.confidence < 0.65) {
+    const isImplicit = candidate.reason?.startsWith("implicit_");
+    const threshold = isImplicit ? 0.55 : 0.65;
+    if (candidate.confidence < threshold) {
       return reject("passive_confidence_too_low", candidate);
     }
   }

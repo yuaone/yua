@@ -358,7 +358,7 @@ export interface ChatMeta {
     maxImages?: number;
   };
   verdict?: "APPROVE" | "BLOCK" | "DEFER" | "HOLD";
-  memoryIntent?: "NONE" | "CONTEXT" | "ARCHITECTURE" | "DECISION" | "REMEMBER";
+  memoryIntent?: "NONE" | "CONTEXT" | "ARCHITECTURE" | "DECISION" | "REMEMBER" | "IMPLICIT";
   memoryCandidate?: MemoryCandidate;
   activation?: {
     level: "FULL" | "LIMITED" | "SHADOW";
@@ -907,96 +907,78 @@ if (!meta.outmode) {
     /* 🧠 RAW CONVERSATION TURNS (SSOT)                  */
     /* -------------------------------------------------- */
 
-    let conversationTurns: {
-      role: "user" | "assistant" | "system";
-      content: string;
-    }[] = [];
+    // 🔥 PERF: Group A — 독립 작업 병렬화 (순차 ~65ms → 병렬 ~15ms)
+    const [conversationTurns, , crossMemoryResult] = await Promise.all([
+      // 1. Message history
+      (async () => {
+        if (!meta.threadId) return [] as { role: "user" | "assistant" | "system"; content: string }[];
+        try {
+          const historyDepth =
+            meta.thinkingProfile === "DEEP" ? 30
+              : meta.thinkingProfile === "NORMAL" ? 20
+              : 12;
+          const recentMessages =
+            (await MessageEngine.listMessages(meta.threadId))
+              .slice(-historyDepth);
+          return recentMessages.map(m => ({
+            role: m.role as "user" | "assistant" | "system",
+            content: m.content,
+          }));
+        } catch (e) {
+          console.warn("[CHAT_ENGINE][CONVERSATION_TURNS_SKIP]", e);
+          return [] as { role: "user" | "assistant" | "system"; content: string }[];
+        }
+      })(),
 
-    if (meta.threadId) {
-      try {
- const historyDepth =
-   meta.thinkingProfile === "DEEP" ? 30
-     : meta.thinkingProfile === "NORMAL" ? 20
-     : 12; // FAST or unset — still reasonable window
- const recentMessages =
-   (await MessageEngine.listMessages(meta.threadId))
-     .slice(-historyDepth);
+      // 2. User profile + Persona (best-effort, fire-and-forget)
+      (async () => {
+        if (!meta.userId || !meta.instanceId) return;
+        await Promise.all([
+          ensureUserProfile({
+            userId: Number(meta.userId),
+            workspaceId: String(meta.instanceId),
+          }).catch(e => console.warn("[USER_PROFILE_SYNC][SKIPPED]", e)),
+          PersonaAggregator.ingest({
+            userId: Number(meta.userId),
+            workspaceId: String(meta.instanceId),
+            hint: personaHint,
+          }).catch(e => console.warn("[PERSONA_AGGREGATOR][SKIPPED]", e)),
+        ]);
+      })(),
 
-        conversationTurns = recentMessages.map(m => ({
-          role: m.role,
-          content: m.content,
-        }));
-      } catch (e) {
-        console.warn("[CHAT_ENGINE][CONVERSATION_TURNS_SKIP]", e);
-      }
-    }
+      // 3. Cross-Memory attach
+      (async () => {
+        try {
+          const cross = await CrossMemoryOrchestrator.attach({
+            decision: {
+              sanitizedMessage: meta.sanitizedMessage ?? message,
+              reasoning: meta.reasoning!,
+              turnIntent: meta.turnIntent,
+              conversationalOutcome: meta.conversationalOutcome,
+              prevTurnContinuity: meta.prevTurnContinuity,
+              memoryIntent: meta.memoryIntent ?? "NONE",
+              responseAffordance: meta.responseAffordance,
+              threadId: meta.threadId,
+              userId: meta.userId,
+              instanceId: meta.instanceId,
+              traceId: meta.traceId!,
+            } as DecisionContext,
+          });
+          return cross.memoryContext;
+        } catch (e) {
+          console.warn("[CROSS_MEMORY][SKIPPED]", e);
+          return undefined;
+        }
+      })(),
+    ]);
 
-    console.log("[DEBUG][CONTEXT_RUNTIME_IN]", {
-  threadId: meta.threadId,
-  instanceId: meta.instanceId,
-  allowMemory: policy.allowMemory,
-  hasResearchContext: !!researchResult.researchContext,
-  
-});
+    const crossMemoryContext = crossMemoryResult;
 
- /* -------------------------------------------------- */
- /* 🧠 User Profile Auto-Population (SSOT)             */
- /* - Cross-Memory 이전, 최초 1회만 실행               */
- /* -------------------------------------------------- */
-if (meta.userId && meta.instanceId) {
-  try {
-    await ensureUserProfile({
-      userId: Number(meta.userId),
-      workspaceId: String(meta.instanceId),
-    });
-  } catch (e) {
-    console.warn("[USER_PROFILE_SYNC][SKIPPED]", e);
-  }
-}
-
- /* 🧠 Cross-Thread Memory Attach (SSOT)               */
- /* - ContextRuntime 이전 ONLY                         */
- /* - READ ONLY / Reference ONLY                       */
- /* -------------------------------------------------- */
-
-
-let crossMemoryContext: string | undefined;
-
-try {
-  const cross = await CrossMemoryOrchestrator.attach({
-    decision: {
-      sanitizedMessage: meta.sanitizedMessage ?? message,
-      reasoning: meta.reasoning!,
-      turnIntent: meta.turnIntent,
-      conversationalOutcome: meta.conversationalOutcome,
-      prevTurnContinuity: meta.prevTurnContinuity,
-      memoryIntent: meta.memoryIntent ?? "NONE",
-      responseAffordance: meta.responseAffordance,
+    console.log("[CROSS_MEMORY][ATTACHED]", {
       threadId: meta.threadId,
-      userId: meta.userId,
-      instanceId: meta.instanceId,
-      traceId: meta.traceId!,
-    } as DecisionContext,
-  });
-
-  crossMemoryContext = cross.memoryContext;
-} catch (e) {
-  console.warn("[CROSS_MEMORY][SKIPPED]", e);
-}
-
-console.log("[CROSS_MEMORY][ATTACHED]", {
-  threadId: meta.threadId,
-  traceId: meta.traceId,
-  hasMemory: Boolean(crossMemoryContext),
-});
-
-console.log("[DEBUG][CONTEXT_RUNTIME_IN]", {
-  threadId: meta.threadId,
-  instanceId: meta.instanceId,
-  allowMemory: policy.allowMemory,
-  hasResearchContext: !!researchResult.researchContext,
-  hasCrossMemory: Boolean(crossMemoryContext),
-});
+      traceId: meta.traceId,
+      hasMemory: Boolean(crossMemoryContext),
+    });
 /* -------------------------------------------------- */
 /* 5️⃣-1️⃣ Research Summary (READ-ONLY)                */
 /* -------------------------------------------------- */
@@ -1021,7 +1003,7 @@ const baseConstraints = crossMemoryContext
   // For other intents, skip memory on SHIFT to avoid stale context — but NEVER skip on REMEMBER
   allowMemory:
     policy.allowMemory === true &&
-    (meta.memoryIntent === "REMEMBER" || meta.turnIntent !== "SHIFT"),
+    (meta.memoryIntent === "REMEMBER" || meta.memoryIntent === "IMPLICIT" || meta.turnIntent !== "SHIFT"),
 
     isSelfInquiry,
 
@@ -1065,50 +1047,65 @@ console.log("[DEBUG][CONTEXT_RUNTIME_OUT]", {
     /* 🔒 PHASE 8: Runtime Signal → SignalHints (SSOT)   */
     /* -------------------------------------------------- */
 
+    // 🔥 PERF: Group C — Signal + StyleProfile 병렬화 (순차 ~45ms → 병렬 ~15ms)
     let signalHints: SignalHints = {};
 
-    try {
-  // 🔥 Facet Drift (Existence)
-  const existenceDrift =
-    await SignalRepo.getLatest<{ delta?: number }>({
-      kind: "SEARCH_FACET_TREND",
-      scope: "GLOBAL",
-      target: "existence",
-    });
+    const [signalResult, styleProfileResult] = await Promise.all([
+      // Signal hints (best-effort)
+      (async () => {
+        try {
+          const [existenceDrift, confidenceTrend] = await Promise.all([
+            SignalRepo.getLatest<{ delta?: number }>({
+              kind: "SEARCH_FACET_TREND",
+              scope: "GLOBAL",
+              target: "existence",
+            }),
+            SignalRepo.getLatest<{ drop?: number }>({
+              kind: "CONFIDENCE_TREND",
+              scope: "GLOBAL",
+            }),
+          ]);
 
-  if (
-    existenceDrift &&
-    existenceDrift.confidence >= 0.6 &&
-    typeof existenceDrift.value?.delta === "number"
-  ) {
-    signalHints.facetDrift = {
-      existence:
-        existenceDrift.value.delta >= 0.2
-          ? "UP"
-          : existenceDrift.value.delta <= -0.2
-          ? "DOWN"
-          : undefined,
-    };
-  }
-      const confidenceTrend =
-        await SignalRepo.getLatest<{ drop?: number }>({
-          kind: "CONFIDENCE_TREND",
-          scope: "GLOBAL",
-        });
+          const hints: SignalHints = {};
+          if (
+            existenceDrift &&
+            existenceDrift.confidence >= 0.6 &&
+            typeof existenceDrift.value?.delta === "number"
+          ) {
+            hints.facetDrift = {
+              existence:
+                existenceDrift.value.delta >= 0.2
+                  ? "UP"
+                  : existenceDrift.value.delta <= -0.2
+                  ? "DOWN"
+                  : undefined,
+            };
+          }
+          if (
+            confidenceTrend &&
+            confidenceTrend.confidence >= 0.6 &&
+            typeof confidenceTrend.value?.drop === "number" &&
+            confidenceTrend.value.drop >= 0.2
+          ) {
+            hints.maxSuggestionCap = 1;
+            hints.conservativeSuggestions = true;
+          }
+          return hints;
+        } catch (e) {
+          console.warn("[SIGNAL_HINT][SKIPPED]", e);
+          return {} as SignalHints;
+        }
+      })(),
 
-      if (
-        confidenceTrend &&
-        confidenceTrend.confidence >= 0.6 &&
-        typeof confidenceTrend.value?.drop === "number" &&
-        confidenceTrend.value.drop >= 0.2
-      ) {
-        signalHints.maxSuggestionCap = 1;
-        signalHints.conservativeSuggestions = true;
-      }
-    } catch (e) {
-      // 🔒 best-effort: signal은 힌트일 뿐
-      console.warn("[SIGNAL_HINT][SKIPPED]", e);
-    }
+      // Style profile
+      (async () => {
+        return meta.threadId
+          ? await loadThreadStyleProfile(meta.threadId)
+          : null;
+      })(),
+    ]);
+
+    signalHints = signalResult;
 
 /* -------------------------------------------------- */
 /* 🧠 COMPLETION + SELF CORRECTION (SSOT)             */
@@ -1159,10 +1156,7 @@ if (
 /* 🎨 STYLE PROFILE (SSOT)                            */
 /* -------------------------------------------------- */
 
-let styleProfile =
-  meta.threadId
-    ? await loadThreadStyleProfile(meta.threadId)
-    : null;
+let styleProfile = styleProfileResult;
 
 if (!styleProfile) {
   styleProfile = createEmptyStyleProfile();
@@ -1754,10 +1748,51 @@ if (
 }
 
 /* -------------------------------------------------- */
-/* 🧠 PHASE 9-3: Memory Candidate Generation (SSOT)   */
+/* NOTE: These memory blocks run for NON-STREAM only. */
+/* Stream mode memory is handled by                    */
+/* memory-pipeline-runner.ts via execution-engine.ts   */
+/* stream end hook.                                    */
 /* -------------------------------------------------- */
 
 let memoryCandidate: MemoryCandidate | null = null;
+
+/* -------------------------------------------------- */
+/* 🧠 PHASE 9-3-IMPLICIT: Implicit Memory (NON-STREAM) */
+/* -------------------------------------------------- */
+
+if (
+  !meta.stream &&
+  policy.allowMemory === true &&
+  !memoryCandidate &&
+  meta.instanceId &&
+  meta.userId
+) {
+  try {
+    const { detectImplicitMemory } = await import("../memory/memory-implicit-detector.js");
+    const { scoreImplicitCandidate } = await import("../memory/memory-implicit-scorer.js");
+    const implicitResult = detectImplicitMemory(message);
+    if (implicitResult.category !== "NONE") {
+      const score = scoreImplicitCandidate(implicitResult, message);
+      if (score >= 0.55) {
+        memoryCandidate = {
+          content: implicitResult.extractedContent,
+          scope: implicitResult.scope,
+          confidence: score,
+          reason: `implicit_${implicitResult.category.toLowerCase()}`,
+          source: "passive",
+          meta: { origin: "language" },
+        };
+        meta.memoryCandidate = memoryCandidate;
+      }
+    }
+  } catch (e) {
+    console.warn("[IMPLICIT_MEMORY][ERROR]", e);
+  }
+}
+
+/* -------------------------------------------------- */
+/* 🧠 PHASE 9-3: Memory Candidate Generation (SSOT)   */
+/* -------------------------------------------------- */
 
 if (
   !meta.stream &&
@@ -2110,7 +2145,7 @@ const prevTurnContinuity = {
         decisionCtx.decision.verdict === "REJECT"
           ? "HOLD"
           : decisionCtx.decision.verdict,
-      memoryIntent: decisionCtx.memoryIntent,
+      memoryIntent: decisionCtx.memoryIntent as ChatMeta["memoryIntent"],
       toolGate: decisionCtx.toolGate,
       visionBudget: decisionCtx.toolGate?.visionBudget,
        turnIntent: refinedTurnIntent,   // 🔥 여기

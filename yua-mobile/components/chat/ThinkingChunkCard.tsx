@@ -13,31 +13,97 @@ import { ActivityKind } from "yua-shared/stream/activity";
 import type { MobileOverlayChunk } from "@/store/useMobileStreamSessionStore";
 
 /* ==============================
+   Tool / Action detection
+============================== */
+
+const TOOL_KINDS = new Set<string>([
+  ActivityKind.TOOL,
+  ActivityKind.QUANT_ANALYSIS,
+  ActivityKind.CODE_INTERPRETING,
+  ActivityKind.SEARCHING,
+  ActivityKind.EXECUTING,
+]);
+
+function isToolChunk(chunk: MobileOverlayChunk): boolean {
+  return TOOL_KINDS.has(chunk.kind as string);
+}
+
+function tryFormatJson(raw: string): string | null {
+  try {
+    const parsed = JSON.parse(raw);
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return null;
+  }
+}
+
+function extractToolDisplay(chunk: MobileOverlayChunk): {
+  toolName: string | null;
+  params: string | null;
+  result: string | null;
+} {
+  const title = chunk.title ?? null;
+  const body = chunk.body ?? "";
+  const meta = chunk.meta as Record<string, unknown> | null;
+
+  // Try to extract structured params from meta
+  const metaParams = meta?.params ?? meta?.arguments ?? meta?.input;
+  const metaResult = meta?.result ?? meta?.output;
+
+  let params: string | null = null;
+  let result: string | null = null;
+
+  if (metaParams && typeof metaParams === "object") {
+    params = JSON.stringify(metaParams, null, 2);
+  } else if (metaParams && typeof metaParams === "string") {
+    params = tryFormatJson(metaParams) ?? metaParams;
+  }
+
+  if (metaResult && typeof metaResult === "string") {
+    result = metaResult;
+  } else if (metaResult && typeof metaResult === "object") {
+    result = JSON.stringify(metaResult, null, 2);
+  }
+
+  // Fallback: if no structured data, try to parse body as JSON
+  if (!params && !result && body.trim()) {
+    const formatted = tryFormatJson(body.trim());
+    if (formatted) {
+      params = formatted;
+    } else {
+      result = body.trim();
+    }
+  }
+
+  return { toolName: title, params, result };
+}
+
+/* ==============================
    ActivityKind -> Korean labels
 ============================== */
 
 const KIND_LABELS: Record<string, string> = {
-  [ActivityKind.ANALYZING_INPUT]: "\uC785\uB825 \uBD84\uC11D \uC911",
-  [ActivityKind.ANALYZING_IMAGE]: "\uC774\uBBF8\uC9C0 \uBD84\uC11D \uC911",
-  [ActivityKind.PLANNING]: "\uACC4\uD68D \uC218\uB9BD \uC911",
-  [ActivityKind.RESEARCHING]: "\uC870\uC0AC \uC911",
-  [ActivityKind.RANKING_RESULTS]: "\uACB0\uACFC \uC815\uB9AC \uC911",
-  [ActivityKind.FINALIZING]: "\uB9C8\uBB34\uB9AC \uC911",
-  [ActivityKind.IMAGE_ANALYSIS]: "\uC774\uBBF8\uC9C0 \uBD84\uC11D",
-  [ActivityKind.IMAGE_GENERATION]: "\uC774\uBBF8\uC9C0 \uC0DD\uC131",
-  [ActivityKind.REASONING_SUMMARY]: "\uCD94\uB860 \uC694\uC57D",
-  [ActivityKind.SEARCHING]: "\uAC80\uC0C9 \uC911",
-  [ActivityKind.TOOL]: "\uB3C4\uAD6C \uC2E4\uD589",
-  [ActivityKind.QUANT_ANALYSIS]: "\uC815\uB7C9 \uBD84\uC11D",
-  [ActivityKind.EXECUTING]: "\uC2E4\uD589 \uC911",
-  [ActivityKind.VERIFYING]: "\uAC80\uC99D \uC911",
-  [ActivityKind.PREPARING_STUDIO]: "\uC2A4\uD29C\uB514\uC624 \uC900\uBE44",
-  [ActivityKind.CODE_INTERPRETING]: "\uCF54\uB4DC \uD574\uC11D",
-  [ActivityKind.NOTE]: "\uBA54\uBAA8",
+  [ActivityKind.ANALYZING_INPUT]: "입력 분석 중",
+  [ActivityKind.ANALYZING_IMAGE]: "이미지 분석 중",
+  [ActivityKind.PLANNING]: "계획 수립 중",
+  [ActivityKind.RESEARCHING]: "조사 중",
+  [ActivityKind.RANKING_RESULTS]: "결과 정리 중",
+  [ActivityKind.FINALIZING]: "마무리 중",
+  [ActivityKind.IMAGE_ANALYSIS]: "이미지 분석",
+  [ActivityKind.IMAGE_GENERATION]: "이미지 생성",
+  [ActivityKind.REASONING_SUMMARY]: "추론 요약",
+  [ActivityKind.SEARCHING]: "검색 중",
+  [ActivityKind.TOOL]: "도구 실행",
+  [ActivityKind.QUANT_ANALYSIS]: "정량 분석",
+  [ActivityKind.EXECUTING]: "실행 중",
+  [ActivityKind.VERIFYING]: "검증 중",
+  [ActivityKind.PREPARING_STUDIO]: "스튜디오 준비",
+  [ActivityKind.CODE_INTERPRETING]: "코드 해석",
+  [ActivityKind.NOTE]: "메모",
 };
 
 function getKindLabel(kind?: string | null): string {
-  if (!kind) return "\uD65C\uB3D9";
+  if (!kind) return "활동";
   return KIND_LABELS[kind] ?? kind;
 }
 
@@ -113,6 +179,56 @@ function ThinkingChunkCard({ chunk }: Props) {
 
   const dotStatus = resolveDotStatus(chunk);
   const kindLabel = getKindLabel(chunk.kind);
+  const isTool = isToolChunk(chunk);
+
+  // Tool chunks: structured display with code block
+  if (isTool) {
+    const { toolName, params, result } = extractToolDisplay(chunk);
+    return (
+      <View style={[styles.card, { backgroundColor: colors.chunkCardBg }]}>
+        <View style={styles.cardHeader}>
+          <PulseDot status={dotStatus} />
+          <Text style={[styles.kindLabel, { color: colors.textPrimary }]}>
+            {kindLabel}
+          </Text>
+          {toolName ? (
+            <View style={[styles.toolBadge, { backgroundColor: colors.toolBadgeBg ?? "rgba(99,102,241,0.12)" }]}>
+              <Text style={[styles.toolBadgeText, { color: colors.toolBadgeColor ?? "#6366f1" }]}>
+                {toolName}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {params ? (
+          <Pressable onPress={() => setExpanded((v) => !v)}>
+            <View style={[styles.codeBlock, { backgroundColor: colors.codeBlockBg ?? "rgba(0,0,0,0.04)" }]}>
+              <Text
+                style={[styles.codeText, { color: colors.codeBlockText ?? "#374151" }]}
+                numberOfLines={expanded ? undefined : 6}
+              >
+                {params}
+              </Text>
+            </View>
+            {!expanded && (params.split("\n").length > 6) && (
+              <Text style={styles.expandHint}>더 보기</Text>
+            )}
+          </Pressable>
+        ) : null}
+
+        {result ? (
+          <Text
+            style={[styles.bodyText, { color: colors.textSecondary, marginTop: 6 }]}
+            numberOfLines={expanded ? undefined : MAX_COLLAPSED_LINES}
+          >
+            {result}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
+
+  // Normal chunks: plain text display
   const bodyText = chunk.inline ?? chunk.body ?? null;
   const hasBody = Boolean(bodyText?.trim());
 
@@ -142,7 +258,7 @@ function ThinkingChunkCard({ chunk }: Props) {
             {bodyText}
           </Text>
           {!expanded && (bodyText?.split("\n").length ?? 0) > MAX_COLLAPSED_LINES && (
-            <Text style={styles.expandHint}>{"\uB354 \uBCF4\uAE30"}</Text>
+            <Text style={styles.expandHint}>{"더 보기"}</Text>
           )}
         </Pressable>
       ) : null}
@@ -203,5 +319,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#3b82f6",
     marginTop: 4,
+  },
+  toolBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  toolBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: "monospace",
+  },
+  codeBlock: {
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+  },
+  codeText: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: "monospace",
   },
 });
