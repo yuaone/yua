@@ -1,0 +1,99 @@
+# YUA-LLM 1.3B + Vision (SigLIP-B/16)
+# Phase 1: Projection alignment (LLM+ViT frozen, MLP만 학습)
+# Phase 2: Instruction tuning (MLP + LLM LoRA)
+
+model:
+  name: yua1.0-1.3b-vision
+  # ── LLM backbone (1.3B text model 그대로) ──
+  n_layers: 24
+  d_model: 2048
+  n_heads: 32
+  head_dim: 64
+  ffn_dim: 5461
+  vocab_size: 128000
+  context_length: 2048
+  dropout: 0.0
+  bias: false
+  norm: rmsnorm
+  position_encoding: rope
+  rope_theta: 500000
+  activation: swiglu
+  tie_embeddings: true
+  embed_scaling: false
+  gqa_groups: 8
+  attn_res: block
+  attn_res_block_size: 4
+  mtp_num_heads: 0            # Vision 학습 시 MTP 비활성화
+
+vision:
+  # ── Vision Encoder ──
+  encoder_name: google/siglip-base-patch16-384
+  image_size: 384
+  patch_size: 16
+  vision_dim: 768
+
+  # ── Token Compression ──
+  use_pixel_shuffle: true
+  pixel_shuffle_ratio: 4       # 576 patches → 36 tokens
+
+  # ── Projection MLP ──
+  projection_layers: 2
+  projection_dim: 2048         # = d_model
+  projection_activation: gelu
+
+  # ── Freeze Control ──
+  freeze_encoder: true         # Phase 1: true, Phase 2: true (ViT always frozen)
+  freeze_llm: true             # Phase 1: true, Phase 2: false (or LoRA)
+
+  # ── OCR (한글/CJK 대응) ──
+  use_ocr_augment: true
+  ocr_backend: easyocr
+  ocr_languages: [ko, en, ja, zh]
+
+  # ── Limits ──
+  max_image_tokens: 64
+  max_images: 3
+
+training:
+  # ── Phase 1: Projection Alignment ──
+  # 학습 대상: MLP projection만 (~20M params)
+  # 데이터: LLaVA-Pretrain 558K
+  # 예상: 단일 A100, ~5시간
+  phase: 1
+  batch_tokens: 500_000
+  max_tokens: 1_000_000_000
+  lr: 1.0e-3                   # projection은 높은 LR
+  lr_min_ratio: 0.1
+  warmup_tokens: 50_000_000
+  weight_decay: 0.0            # projection alignment는 weight decay 없이
+  grad_clip: 1.0
+  precision: bf16
+
+  # ── Phase 2: Instruction Tuning (이 값으로 교체) ──
+  # phase: 2
+  # lr: 2.0e-5                 # LLM LoRA는 낮은 LR
+  # weight_decay: 0.1
+  # max_tokens: 5_000_000_000
+  # lora_r: 16
+  # lora_alpha: 32
+  # lora_target: [q_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+data:
+  # Phase 1
+  phase1_data:
+    - name: llava-pretrain
+      path: data/vision/llava_pretrain_558k
+      format: image_caption
+
+  # Phase 2
+  phase2_data:
+    - name: llava-instruct-150k
+      path: data/vision/llava_instruct_150k
+      format: image_conversation
+    - name: cauldron-subset
+      path: data/vision/cauldron_subset
+      format: image_qa
+    - name: x-llava-91k
+      path: data/vision/x_llava_91k
+      format: image_conversation
+      languages: [ko, en, zh]

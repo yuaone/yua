@@ -1,0 +1,44 @@
+# YUA MoE 9.2B — PyTorch config
+# Matches maxtext_yua_7b_moe.yml for checkpoint conversion compatibility
+model:
+  name: yua-moe-9.2b
+  n_layers: 32
+  d_model: 2048
+  n_heads: 32
+  head_dim: 64
+  ffn_dim: 5461
+  vocab_size: 128000
+  context_length: 2048
+  dropout: 0.0
+  bias: false
+  norm_type: rmsnorm
+  position_encoding: rope
+  rope_theta: 500000
+  activation: swiglu
+  tie_embeddings: true
+  gqa_groups: 8
+  qk_norm: true
+  attn_res: standard
+  mtp_num_heads: 0
+  embed_scaling: false
+
+  # MoE
+  ffn_type: moe
+  moe_num_experts: 8
+  moe_top_k: 2
+  moe_capacity_factor: 1.25
+  moe_router_aux_loss_coef: 0.01
+  moe_router_z_loss_coef: 0.001
+  moe_shared_experts: 0
+  moe_router_init_std: 0.001
+  moe_shared_scale: 1.0
+
+training:
+  batch_tokens: 6_000_000
+  max_tokens: 518_000_000_000
+  lr: 1.0e-4
+  lr_min_ratio: 0.1
+  warmup_tokens: 375_000_000
+  weight_decay: 0.1
+  grad_clip: 1.0
+  precision: bf16

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "yua"
+version = "0.1.0"
+description = "YUA — Multilingual MoE Language Model"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Jungwon Eom", email = "dmsal020813@gmail.com"},
+]
+keywords = ["llm", "moe", "multilingual", "transformer", "language-model"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "torch>=2.1.0",
+    "sentencepiece>=0.2.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+vision = [
+    "Pillow>=10.0.0",
+    "transformers>=4.40.0",
+]
+all = [
+    "yua[vision]",
+]
+
+[project.urls]
+Homepage = "https://github.com/yuaone/yua"
+Repository = "https://github.com/yuaone/yua"
+
+[tool.setuptools.packages.find]
+include = ["src*"]

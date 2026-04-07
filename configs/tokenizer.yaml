@@ -1,0 +1,33 @@
+# YUA-LLM Tokenizer Configuration
+tokenizer:
+  type: sentencepiece_bpe
+  vocab_size: 128000
+  character_coverage: 0.9995
+  normalization: nfkc
+  byte_fallback: true
+  split_by_whitespace: true
+  split_digits: true
+  max_sentencepiece_length: 16
+
+  # Special tokens
+  special_tokens:
+    pad: "<pad>"
+    unk: "<unk>"
+    bos: "<s>"
+    eos: "</s>"
+
+  # Training corpus language weights
+  language_weights:
+    ko: 0.30
+    en: 0.30
+    ja: 0.15
+    zh: 0.15
+    other: 0.10
+
+  # Evaluation metrics
+  evaluation:
+    - compression_ratio
+    - fertility
+    - byte_fallback_rate
+    - token_inflation
+    - language_fairness_gap

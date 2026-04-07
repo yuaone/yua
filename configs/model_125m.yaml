@@ -1,0 +1,27 @@
+# YUA-LLM S1: 125M parameters
+model:
+  name: yua1.0-125m
+  n_layers: 12
+  d_model: 768
+  n_heads: 12
+  head_dim: 64
+  ffn_dim: 3072
+  vocab_size: 128000
+  context_length: 2048
+  dropout: 0.0
+  bias: false
+  norm: rmsnorm          # pre-LN with RMSNorm
+  position_encoding: alibi
+  activation: gelu
+  qk_norm: false             # 125M은 QK-Norm 없이 학습됨 (체크포인트 호환)
+  tie_embeddings: true
+
+training:
+  batch_tokens: 500_000
+  max_tokens: 5_000_000_000  # 5B tokens for scaling sweep
+  lr: 6.0e-4
+  lr_min_ratio: 0.1
+  warmup_tokens: 375_000_000
+  weight_decay: 0.1
+  grad_clip: 1.0
+  precision: bf16

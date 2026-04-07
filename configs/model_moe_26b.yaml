@@ -1,0 +1,46 @@
+# YUA MoE 26B — from-scratch pretrain config
+# Architecture: d_model=4096 (1T roadmap aligned), 8 experts, top-2
+# Total: ~27.5B, Active: ~8.0B per token
+# Predecessor: yua-moe-9.2b (d_model=2048) — no weight transfer (width change)
+model:
+  name: yua-moe-26b
+  n_layers: 24
+  d_model: 4096
+  n_heads: 64
+  head_dim: 64
+  ffn_dim: 11008              # SwiGLU: 4096 * 8/3, rounded to 256
+  vocab_size: 128000
+  context_length: 4096        # 2x from 7B
+  dropout: 0.0
+  bias: false
+  norm_type: rmsnorm
+  position_encoding: rope
+  rope_theta: 500000
+  activation: swiglu
+  tie_embeddings: true
+  gqa_groups: 16              # 64 heads / 16 = 4 heads per KV group
+  qk_norm: true
+  attn_res: standard
+  mtp_num_heads: 0
+  embed_scaling: false
+
+  # MoE
+  ffn_type: moe
+  moe_num_experts: 8
+  moe_top_k: 2
+  moe_capacity_factor: 1.25
+  moe_router_aux_loss_coef: 0.01
+  moe_router_z_loss_coef: 0.001
+  moe_shared_experts: 0
+  moe_router_init_std: 0.001
+  moe_shared_scale: 1.0
+
+training:
+  batch_tokens: 8_000_000
+  max_tokens: 1_000_000_000_000   # 1T tokens
+  lr: 8.0e-5
+  lr_min_ratio: 0.1
+  warmup_tokens: 750_000_000
+  weight_decay: 0.1
+  grad_clip: 1.0
+  precision: bf16

@@ -1,0 +1,28 @@
+# YUA-LLM S5: 70B parameters (target)
+# TBD: finalize after scaling sweep
+model:
+  name: yua1.0-70b
+  n_layers: 80
+  d_model: 8192
+  n_heads: 64
+  head_dim: 128
+  ffn_dim: 28672
+  vocab_size: 250000
+  context_length: 2048
+  dropout: 0.0
+  bias: false
+  norm: rmsnorm
+  position_encoding: alibi
+  activation: gelu
+  tie_embeddings: false
+  gqa_groups: 8
+
+training:
+  batch_tokens: 4_000_000
+  max_tokens: 1_400_000_000_000  # 1.4T Chinchilla anchor
+  lr: 3.0e-5   # TBD after sweep
+  lr_min_ratio: 0.1
+  warmup_tokens: 375_000_000
+  weight_decay: 0.1
+  grad_clip: 1.0
+  precision: bf16

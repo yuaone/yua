@@ -1,0 +1,36 @@
+# YUA-LLM S2: 1.3B parameters
+# v2: RoPE + SwiGLU + GQA (2025~2026 표준 아키텍처)
+model:
+  name: yua1.0-1.3b
+  n_layers: 24
+  d_model: 2048
+  n_heads: 32
+  head_dim: 64
+  ffn_dim: 5461              # SwiGLU 보정: 8192 * 2/3 ≈ 5461
+  vocab_size: 128000
+  context_length: 2048
+  dropout: 0.0
+  bias: false
+  norm: rmsnorm
+  position_encoding: rope     # ALiBi → RoPE (2025~2026 전 모델 표준)
+  rope_theta: 500000          # LLaMA 3 기준
+  activation: swiglu          # GELU → SwiGLU (같은 파라미터로 성능 향상)
+  tie_embeddings: true
+  embed_scaling: false        # No sqrt(d_model) scaling — weight tying consistency
+  gqa_groups: 8               # MHA → GQA 8그룹 (KV cache 75% 절감)
+  qk_norm: true               # QK-Norm (Qwen 3, Gemma 3, OLMo 2 — 2026 표준)
+  attn_res: block             # Block Attention Residuals (Moonshot AI)
+  attn_res_block_size: 4      # 4 layers per block
+  mtp_num_heads: 2            # Multi-Token Prediction (t+2, t+3 예측)
+  mtp_loss_weight: 0.1        # MTP 보조 loss 가중치
+
+training:
+  batch_tokens: 2_000_000     # 1M → 2M (리서치 권장)
+  max_tokens: 26_000_000_000  # ~Chinchilla optimal for 1.3B
+  lr: 3.0e-4                  # 2e-4 → 3e-4 (LLaMA 1.3B 기준)
+  lr_min_ratio: 0.1
+  warmup_tokens: 375_000_000
+  weight_decay: 0.1
+  lr_decay_tokens: 26_000_000_000  # = max_tokens (Chinchilla cosine decay)
+  grad_clip: 1.0
+  precision: bf16

@@ -1,0 +1,35 @@
+# YUA Growth Family S4: ~13B Dense (DEPRECATED)
+# NOTE: Width expansion proven impossible (EXP-001). From-scratch only.
+model:
+  name: yua-growth-13b
+  n_layers: 40
+  d_model: 5120
+  n_heads: 80
+  head_dim: 64
+  ffn_dim: 13653             # SwiGLU: 20480 * 2/3 ≈ 13653
+  vocab_size: 128000
+  context_length: 2048
+  dropout: 0.0
+  bias: false
+  norm: rmsnorm
+  position_encoding: rope
+  rope_theta: 500000
+  activation: swiglu
+  tie_embeddings: true
+  embed_scaling: false
+  gqa_groups: 20
+  qk_norm: true
+  attn_res: block
+  attn_res_block_size: 4
+  mtp_num_heads: 2
+  mtp_loss_weight: 0.1
+
+training:
+  batch_tokens: 6_000_000
+  max_tokens: 260_000_000_000
+  lr: 1.0e-4
+  lr_min_ratio: 0.1
+  warmup_tokens: 375_000_000
+  weight_decay: 0.1
+  grad_clip: 1.0
+  precision: bf16

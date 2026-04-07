@@ -1,0 +1,118 @@
+# Secrets
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Data & checkpoints (too large for git)
+data/
+!data/tokenizer/
+checkpoints/
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Virtualenv
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local-only (로컬 유지, GitHub 제외)
+.backup/
+.claude/
+Agent.md
+gemini.md
+gpt.md
+test.md
+클로드가볼곳/
+기사/
+notebookab548805fb.ipynb
+environment_files/
+CLAUDE.md
+HANDOVER.md
+docs/HANDOVER.md
+
+# ============================================================
+# Internal — GitHub에서 안 보이게
+# ============================================================
+
+# 내부 설계 문서 (경쟁 정보)
+docs/YUA_26B_HYBRID_DESIGN.md
+docs/CONTEXT_EXTENSION_DESIGN.md
+docs/YUA_BEHAVIOR_SPEC.md
+docs/DPO_RUBRIC.md
+docs/TPU_LAUNCH_CHECKLIST.md
+docs/TRAINING_REPORT_125M.md
+docs/V5E_SETUP_GUIDE.md
+docs/BUGFIX_PLAN.md
+docs/YUA_1_0_BUG_SCAN_REPORT_2026-03-26.md
+docs/YUA_30DAY_1_3B_TO_7B_ROADMAP.md
+docs/YUA_7B_TRANSITION_CHECKLIST.md
+docs/YUA_GPT1_TRIAGE.md
+docs/YUA_EMBODIED_TRANSITION_ROADMAP.md
+docs/YUA_SERA_INTEGRATION_CHECKLIST.md
+docs/YUA_SERA_4AI_CONSENSUS.md
+docs/YUA_TRAIN_MONITOR_DESIGN.md
+docs/BLOG_DESIGN.md
+docs/SETUP_DATA_COLLECTION.md
+docs/YUA_RAG_AND_TOOLS_FINAL_SPEC.md
+docs/YUA_API_REFERENCE.md
+docs/VLM_RESEARCH_2025.md
+docs/YUA_REASONING_AB_TEST_PLAN.md
+docs/WORKPLAN.md
+docs/ML_MODULES.md
+docs/AI_CHAMPION_DATA.md
+docs/DATA_COLLECTION_PLAN.md
+docs/TPU_SAFETY_RULES.md
+docs/TRAINING_LOG.md
+docs/VISION_DATA_LOG.md
+docs/RESEARCH_MODEL_FUSION_5AI.md
+docs/superpowers/
+
+# 시스템 프롬프트 (노하우)
+configs/system_prompt_v1.md
+configs/system_prompt_v2.md
+configs/yua_chat_template.json
+
+# 학습 config (MaxText, TPU 설정)
+configs/maxtext_*.yml
+configs/training.yaml
+configs/deepspeed.json
+configs/data_pipeline.yaml
+
+# 학습 코드
+src/training/
+
+# 런타임 엔진 (추론 제외한 내부 로직)
+src/runtime/
+src/eval/
+src/evaluation/
+
+# 실험/스크립트
+scripts/
+experiments/
+tests/
+
+# 기타 내부
+yua-code/
+yua-image/
+arc/
+blog/
+notebooks/

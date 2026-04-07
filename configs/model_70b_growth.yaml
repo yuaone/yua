@@ -1,0 +1,35 @@
+# YUA Growth Family S5: ~70B Dense (DEPRECATED)
+# NOTE: Width expansion proven impossible (EXP-001). From-scratch only.
+model:
+  name: yua-growth-70b
+  n_layers: 80
+  d_model: 8192
+  n_heads: 128
+  head_dim: 64
+  ffn_dim: 21845             # SwiGLU: 32768 * 2/3 ≈ 21845
+  vocab_size: 128000
+  context_length: 4096
+  dropout: 0.0
+  bias: false
+  norm: rmsnorm
+  position_encoding: rope
+  rope_theta: 500000
+  activation: swiglu
+  tie_embeddings: true
+  embed_scaling: false
+  gqa_groups: 32
+  qk_norm: true
+  attn_res: block
+  attn_res_block_size: 8
+  mtp_num_heads: 2
+  mtp_loss_weight: 0.1
+
+training:
+  batch_tokens: 16_000_000
+  max_tokens: 1_400_000_000_000
+  lr: 8.0e-5
+  lr_min_ratio: 0.1
+  warmup_tokens: 750_000_000
+  weight_decay: 0.1
+  grad_clip: 1.0
+  precision: bf16
