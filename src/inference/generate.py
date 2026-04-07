@@ -7,14 +7,23 @@ generation code.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Any, Iterator, Optional
 
 import torch
 
 from src.model.config import YuaConfig
 from src.model.yua_model import YuaModel
 from src.runtime.sera_runtime import SERAConfig, SERALearner
+
+
+@dataclass
+class ToolAugmentedResult:
+    """Result of tool-augmented generation."""
+    final_text: str = ""
+    tool_traces: list[Any] = field(default_factory=list)
+    round_count: int = 0
 
 
 class TextGenerator:
@@ -222,6 +231,122 @@ class TextGenerator:
                 top_k=top_k,
                 top_p=top_p,
             )
+        )
+
+    # ---- tool-augmented generation ----
+
+    def generate_with_tools(
+        self,
+        prompt: str,
+        tool_executor: "ToolExecutor",
+        max_new_tokens: int = 512,
+        max_tool_rounds: int = 5,
+        temperature: float = 0.7,
+        top_k: int = 50,
+        top_p: float = 0.9,
+        auto_approve: bool = False,
+        approval_fn: Optional[object] = None,
+    ) -> "ToolAugmentedResult":
+        """Generate text with automatic tool calling loop.
+
+        Flow:
+            1. Model generates response
+            2. Check for <tool_call> in output
+            3. If found: parse → execute → inject result → regenerate
+            4. Repeat until no tool calls or max_tool_rounds reached
+
+        Args:
+            prompt: Input text (ChatML formatted or plain).
+            tool_executor: ToolExecutor instance with registered tools.
+            max_new_tokens: Max tokens per generation round.
+            max_tool_rounds: Max number of tool call → result → regenerate cycles.
+            temperature: Sampling temperature.
+            top_k: Top-k sampling.
+            top_p: Nucleus sampling.
+            auto_approve: If True, skip approval for all tools.
+            approval_fn: Callable(tool_name, arguments) -> bool. Called when
+                         a tool requires approval and auto_approve is False.
+
+        Returns:
+            ToolAugmentedResult with final_text, tool_traces, and round_count.
+        """
+        from src.runtime.tools.executor import ExecutionTrace
+
+        current_prompt = prompt
+        all_traces: list[ExecutionTrace] = []
+        full_output_parts: list[str] = []
+        round_idx = 0
+
+        for round_idx in range(max_tool_rounds):
+            # Generate
+            response = self.generate(
+                prompt=current_prompt,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+            )
+
+            # Check for tool calls
+            calls = tool_executor.parse_tool_calls(response)
+
+            if not calls:
+                # No tool calls — final response
+                full_output_parts.append(response)
+                break
+
+            # Split response: text before first tool_call + tool calls
+            first_call_pos = response.find("<tool_call>")
+            text_before = response[:first_call_pos].strip() if first_call_pos > 0 else ""
+            if text_before:
+                full_output_parts.append(text_before)
+
+            # Execute tools (with approval check)
+            for call in calls:
+                tool_def = tool_executor.registry.get(call.tool_name)
+                needs_approval = tool_def and tool_def.requires_approval
+
+                approved = auto_approve
+                if needs_approval and not auto_approve and approval_fn is not None:
+                    approved = approval_fn(call.tool_name, call.arguments)
+
+                result = tool_executor.execute(
+                    call,
+                    approved=approved or not needs_approval,
+                    parent_trace_id=tool_executor.trace.trace_id,
+                )
+                tool_executor.trace.calls.append(call)
+                tool_executor.trace.results.append(result)
+
+            all_traces.append(tool_executor.trace)
+
+            # Format results and append to prompt for next round
+            result_text = tool_executor.format_results(tool_executor.trace)
+            full_output_parts.append(result_text)
+
+            # Build continuation prompt:
+            # original prompt + model response (with tool calls) + tool results
+            current_prompt = (
+                current_prompt
+                + "\n" + response
+                + "\n" + result_text
+                + "\n"
+            )
+
+            # Reset trace for next round
+            from src.runtime.tools.executor import ExecutionTrace as _ET
+            tool_executor.trace = _ET()
+
+        else:
+            # max_tool_rounds exceeded — append warning
+            full_output_parts.append(
+                "\n[Tool loop limit reached. Returning partial result.]"
+            )
+
+        return ToolAugmentedResult(
+            final_text="\n".join(full_output_parts),
+            tool_traces=all_traces,
+            round_count=round_idx + 1,
         )
 
     # ---- internals ----

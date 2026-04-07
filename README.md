@@ -215,6 +215,52 @@ for lang, prompt in prompts.items():
     print(f"[{lang}] {tokenizer.decode(out[0], skip_special_tokens=True)}\n")
 ```
 
+### Tool Calling
+
+YUA supports tool-augmented generation. The model can call external tools (search, code execution, calculation) and use the results to improve its answers.
+
+```python
+from src.inference.generate import TextGenerator
+from src.runtime.tools.executor import ToolExecutor, create_default_registry
+
+# Setup
+generator = TextGenerator.from_checkpoint(
+    checkpoint_path="checkpoints/yua-moe-9b.pt",
+    config_path="configs/model_moe_9b.yaml",
+    tokenizer_path="data/tokenizer/yua_128k_v2.model",
+)
+executor = ToolExecutor(create_default_registry())
+
+# Generate with tools
+result = generator.generate_with_tools(
+    prompt="What is the square root of 144 plus the cube root of 27?",
+    tool_executor=executor,
+    max_tool_rounds=3,
+)
+print(result.final_text)
+print(f"Tool rounds: {result.round_count}")
+```
+
+**Available tools:**
+
+| Tool | Description | Requires Approval |
+|------|-------------|:-:|
+| `calculator` | Basic arithmetic (AST-safe) | No |
+| `calculate` | Math with functions (sqrt, log, sin, pi...) | No |
+| `execute` | Sandboxed Python execution | Yes |
+| `pytest` | Run tests with result parsing | Yes |
+| `search` | Web search (requires backend) | No |
+
+**Tool call format** (model output):
+```
+<tool_call>{"name": "calculate", "arguments": {"expression": "sqrt(144) + 27**(1/3)"}}</tool_call>
+```
+
+**Tool result format** (injected back to model):
+```
+<tool_result name="calculate">15.0</tool_result>
+```
+
 ---
 
 ## Training Details
