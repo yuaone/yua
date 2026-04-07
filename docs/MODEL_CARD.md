@@ -30,7 +30,7 @@ pipeline_tag: text-generation
 | **Total parameters** | 9.2B |
 | **Active parameters** | 2.7B (per token) |
 | **Experts** | 8 experts, top-2 routing |
-| **Languages** | Korean, English, Japanese, Chinese |
+| **Languages** | Korean, English, Japanese, Chinese + 12 more (see below) |
 | **License** | Apache 2.0 |
 | **Training framework** | MaxText (JAX) on TPU v4-32 |
 | **Compute cost** | $0 (Google TRC grant) |
@@ -49,7 +49,7 @@ pipeline_tag: text-generation
 | Number of experts | 8 |
 | Top-K routing | 2 |
 | Vocabulary | 128,000 (SentencePiece BPE) |
-| Max context length | 2,048 tokens |
+| Max context length | 2,048 (→ 256K via YaRN post-training) |
 | Position encoding | RoPE (theta=500,000) |
 | Normalization | Pre-LN with RMSNorm |
 | QK-Norm | Yes |
@@ -247,15 +247,17 @@ model.print_trainable_parameters()
 
 ### Training Data
 
-| Language | Sources | Target Ratio |
+| Language | Sources | Approx. Ratio |
 |---|---|---|
-| Korean | FineWeb2-ko, Wikipedia-ko | ~40% |
-| English | FineWeb2-en, Wikipedia-en | ~30% |
-| Japanese | FineWeb2-ja, Wikipedia-ja | ~15% |
-| Chinese | FineWeb2-zh | ~10% |
-| Other | Global datasets | ~5% |
+| Korean | FineWeb2-ko, Wikipedia-ko, KoAlpaca, Korean Law, Historical Corpus | ~25% |
+| English | FineWeb 350BT, Wikipedia-en, ArXiv, peS2o, PG19 | ~30% |
+| Japanese | FineWeb2-ja, Wikipedia-ja, Japan Law | ~15% |
+| Chinese | FineWeb2-zh, SkyPile, Wikipedia-zh | ~15% |
+| Code | The Stack (43 languages), OpenCode | ~10% |
+| Other 12 languages | FineWeb2: Arabic, Bengali, German, French, Hindi, Indonesian, Italian, Polish, Portuguese, Spanish, Thai, Vietnamese | ~5% |
 
-All training data is sourced from publicly available datasets. No proprietary or restricted data was used.
+**Total training data: ~1.4TB raw, ~804GB tokenized shards.**
+All data sourced from publicly available datasets. No proprietary or restricted data used.
 
 ### Training Scale
 
@@ -271,7 +273,7 @@ All training data is sourced from publicly available datasets. No proprietary or
 - No HyperCloning -- avoided symmetry bug discovered in Dense 7B experiments
 - Architecture combines standard techniques from published research (see references below)
 - Full development history tracked in Git from first commit
-- Cross-validated by 3 independent AI systems (Claude, GPT, Gemini)
+- Multiple rounds of code review and architecture validation
 
 ### Reference Papers
 
@@ -310,11 +312,22 @@ Planned benchmarks:
 - C-Eval (Chinese)
 - MT-Bench (conversation quality)
 
+## Roadmap
+
+| Phase | Target | Status |
+|---|---|---|
+| Pretraining (9.2B MoE) | 518B tokens on TPU v4-32 | In progress |
+| Context Extension | 2K → 256K via YaRN | Planned (post EP1) |
+| SFT | Instruction tuning with tool calling | Planned |
+| DPO | Preference alignment | Planned |
+| HuggingFace Release | Public model weights | After SFT |
+| 26B Hybrid MoE | Mamba-2 + Transformer + MoE | Design complete |
+
 ## Limitations
 
 - **Training in progress** -- model is in the continual pretraining phase
 - **Multilingual capacity dilution** -- each language may underperform a dedicated monolingual model of equivalent active size
-- **Context window: 2,048 tokens** -- not suitable for long-document tasks without further extension
+- **Base context: 2,048 tokens** -- 256K extension planned via YaRN post-training
 - **No alignment training yet** -- base model only, may produce harmful or inaccurate outputs
 - **MoE routing** -- expert load balancing is being continuously optimized
 
