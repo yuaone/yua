@@ -2,11 +2,11 @@
 
 <img src="https://raw.githubusercontent.com/yuaone/yua/main/yua-image/yua-mascot.png" alt="YUA Mascot" width="320">
 
-# YUA MoE 9.2B
+# YUA MoE 9.45B
 
 ### Open Multilingual Mixture-of-Experts Language Model
 
-**9.2B Total | 2.7B Active per Token | 8 Experts | 16+ Languages**
+**9.45B Total | 2.7B Active per Token | 8 Experts | 16+ Languages | Drop-Upcycled MoE**
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB.svg)](https://www.python.org/)
@@ -21,9 +21,9 @@
 
 ## What is YUA?
 
-YUA MoE 9.2B is a **multilingual Mixture-of-Experts language model trained entirely from scratch** — no fine-tuning of existing models, no distillation, built from the ground up on Google TPU v4-32 using free TRC (TPU Research Cloud) credits.
+YUA MoE 9.45B is a **multilingual Mixture-of-Experts language model** built on Google TPU v4-32 using free TRC (TPU Research Cloud) credits. The model was created through Drop-Upcycling (ICLR 2025) — a 1.93B dense transformer was first trained, then expanded to 9.45B MoE with 8 experts via partial weight re-initialization.
 
-It uses 8 experts with top-2 routing, activating only **2.7B parameters per token** while maintaining the capacity of a 9.2B model. This means inference cost similar to a ~3B dense model, with quality closer to a ~7B model.
+It uses 8 experts with top-2 routing, activating only **2.7B parameters per token** while maintaining the capacity of a 9.45B model. This means inference cost similar to a ~3B dense model, with quality closer to a ~7B model.
 
 > **Built by one person, with $0 compute budget, trained on 16+ languages.**
 
@@ -55,7 +55,7 @@ graph LR
     style EX fill:#4CAF50,color:#fff
 ```
 
-**How MoE routing works:** Each token goes through all 32 layers. At each layer, a router selects the top-2 experts out of 8. Only the selected experts compute — the rest stay idle. This means each token uses ~2.7B of the 9.2B total parameters.
+**How MoE routing works:** Each token goes through all 32 layers. At each layer, a router selects the top-2 experts out of 8. Only the selected experts compute — the rest stay idle. This means each token uses ~2.7B of the 9.45B total parameters.
 
 ```
 Per token: Input → Embed → [RMSNorm → GQA → RMSNorm → Route → 2/8 Experts → Residual] × 32 → LM Head
@@ -107,7 +107,7 @@ Loss = CE loss + MTP loss (optional) + MoE aux loss (layer-averaged)
 | Component | Value |
 |:---|:---|
 | **Type** | Decoder-only Transformer + Sparse MoE |
-| **Total Parameters** | 9.2B |
+| **Total Parameters** | 9.45B |
 | **Active Parameters** | 2.7B per token |
 | **Layers** | 32 |
 | **Hidden Dim** (`d_model`) | 2,048 |
@@ -127,7 +127,7 @@ Loss = CE loss + MTP loss (optional) + MoE aux loss (layer-averaged)
 
 ```
 Dense 7B:  Every parameter fires for every token → 7B FLOPs/token
-MoE 9.2B:  Only 2/8 experts fire → 2.7B FLOPs/token
+MoE 9.45B:  Only 2/8 experts fire → 2.7B FLOPs/token
 
 Result: 3.4× more capacity at same compute cost
 ```
@@ -319,7 +319,7 @@ pie title Training Data Composition
 
 ## Fine-Tuning
 
-YUA MoE 9.2B supports LoRA, QLoRA, and full SFT fine-tuning. See the **[Fine-Tuning Guide](docs/FINE_TUNING_GUIDE.md)** for complete instructions including:
+YUA MoE 9.45B supports LoRA, QLoRA, and full SFT fine-tuning. See the **[Fine-Tuning Guide](docs/FINE_TUNING_GUIDE.md)** for complete instructions including:
 
 - **LoRA** — 20-24GB VRAM (RTX 3090/4090)
 - **QLoRA** — 8-12GB VRAM (RTX 3060/4060)
@@ -363,7 +363,7 @@ ollama run yua-moe-9b
 
 > ⏳ Evaluation in progress after 1 epoch completion (~April 17).
 
-| Benchmark | Metric | YUA MoE 9.2B | OLMoE 7B | Phi-2 2.7B |
+| Benchmark | Metric | YUA MoE 9.45B | OLMoE 7B | Phi-2 2.7B |
 |:---|:---|:---:|:---:|:---:|
 | MMLU | 5-shot | TBD | ~26% | ~50% |
 | HellaSwag | 10-shot | TBD | — | ~73% |
@@ -378,7 +378,7 @@ ollama run yua-moe-9b
 ```mermaid
 graph LR
     A["YUA 125M<br/>Dense<br/>✅ Complete"] --> B["YUA 1.3B<br/>Dense<br/>✅ Complete"]
-    B --> C["YUA MoE 9.2B<br/>8 experts, top-2<br/>🔄 Training"]
+    B --> C["YUA MoE 9.45B<br/>8 experts, top-2<br/>🔄 Training"]
     C --> D["YUA MoE 26B<br/>32 experts, top-4<br/>+ Shared Expert<br/>📋 Planned"]
     D --> E["YUA MoE 70B<br/>128 experts, top-8<br/>📋 Planned"]
     
@@ -447,11 +447,11 @@ Apache License 2.0 — free for commercial and research use.
 
 ```bibtex
 @misc{yua2026moe,
-    title   = {YUA MoE 9.2B: Open Multilingual Mixture-of-Experts Language Model},
+    title   = {YUA MoE 9.45B: Open Multilingual Mixture-of-Experts Language Model},
     author  = {YUA Team},
     year    = {2026},
     url     = {https://github.com/yua-ai/yua},
-    note    = {9.2B total, 2.7B active, 8 experts top-2,
+    note    = {9.45B total, 2.7B active, 8 experts top-2,
                trained from scratch on 134B+ tokens, 16 languages,
                TPU v4-32, $0 compute (Google TRC)}
 }

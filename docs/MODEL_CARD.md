@@ -15,9 +15,9 @@ library_name: transformers
 pipeline_tag: text-generation
 ---
 
-# YUA 1.0 MoE 9.2B
+# YUA 1.0 MoE 9.45B
 
-**YUA 1.0 MoE** is a multilingual Mixture-of-Experts language model with **9.2B total parameters** and **2.7B active parameters per token**. It was trained entirely from scratch on Korean, English, Japanese, and Chinese data using MaxText (JAX) on Google Cloud TPU v4-32.
+**YUA 1.0 MoE** is a multilingual Mixture-of-Experts language model with **9.45B total parameters** and **2.7B active parameters per token**. It was trained entirely from scratch on Korean, English, Japanese, and Chinese data using MaxText (JAX) on Google Cloud TPU v4-32.
 
 > Apache 2.0 licensed. $0 compute cost (Google TRC program). Built by a solo developer.
 
@@ -27,7 +27,7 @@ pipeline_tag: text-generation
 |---|---|
 | **Developer** | Jungwon Eom |
 | **Model type** | Decoder-only MoE Transformer |
-| **Total parameters** | 9.2B |
+| **Total parameters** | 9.45B |
 | **Active parameters** | 2.7B (per token) |
 | **Experts** | 8 experts, top-2 routing |
 | **Languages** | Korean, English, Japanese, Chinese + 12 more (see below) |
@@ -85,7 +85,7 @@ pipeline_tag: text-generation
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 
-model_name = "jungwon-ai/YUA-1.0-MoE-9.2B"
+model_name = "jungwon-ai/YUA-1.0-MoE-9.45B"
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(
@@ -113,7 +113,7 @@ quantization_config = BitsAndBytesConfig(
 )
 
 model = AutoModelForCausalLM.from_pretrained(
-    "jungwon-ai/YUA-1.0-MoE-9.2B",
+    "jungwon-ai/YUA-1.0-MoE-9.45B",
     quantization_config=quantization_config,
     device_map="auto",
 )
@@ -127,12 +127,12 @@ This reduces VRAM usage to approximately **6-8 GB**, making it runnable on consu
 pip install vllm
 
 # Single GPU serving
-vllm serve jungwon-ai/YUA-1.0-MoE-9.2B \
+vllm serve jungwon-ai/YUA-1.0-MoE-9.45B \
     --dtype bfloat16 \
     --max-model-len 2048
 
 # Multi-GPU with expert parallelism
-vllm serve jungwon-ai/YUA-1.0-MoE-9.2B \
+vllm serve jungwon-ai/YUA-1.0-MoE-9.45B \
     --dtype bfloat16 \
     --tensor-parallel-size 2 \
     --enable-expert-parallel \
@@ -144,7 +144,7 @@ Python API:
 ```python
 from vllm import LLM, SamplingParams
 
-llm = LLM(model="jungwon-ai/YUA-1.0-MoE-9.2B", dtype="bfloat16")
+llm = LLM(model="jungwon-ai/YUA-1.0-MoE-9.45B", dtype="bfloat16")
 params = SamplingParams(temperature=0.7, max_tokens=256)
 outputs = llm.generate(["The future of AI is"], params)
 print(outputs[0].outputs[0].text)
@@ -154,7 +154,7 @@ print(outputs[0].outputs[0].text)
 
 ```bash
 # Convert to GGUF
-python convert_hf_to_gguf.py /path/to/YUA-1.0-MoE-9.2B --outfile yua-moe-9.2b-f16.gguf
+python convert_hf_to_gguf.py /path/to/YUA-1.0-MoE-9.45B --outfile yua-moe-9.2b-f16.gguf
 
 # Quantize to Q4_K_M (recommended balance of quality/size)
 ./llama-quantize yua-moe-9.2b-f16.gguf yua-moe-9.2b-q4_k_m.gguf Q4_K_M
@@ -208,7 +208,7 @@ lora_config = LoraConfig(
 
 model = get_peft_model(model, lora_config)
 model.print_trainable_parameters()
-# trainable params: ~27M (0.29% of 9.2B)
+# trainable params: ~27M (0.29% of 9.45B)
 ```
 
 ### Fine-Tuning Approaches
@@ -316,7 +316,7 @@ Planned benchmarks:
 
 | Phase | Target | Status |
 |---|---|---|
-| Pretraining (9.2B MoE) | 518B tokens on TPU v4-32 | In progress |
+| Pretraining (9.45B MoE) | 518B tokens on TPU v4-32 | In progress |
 | Context Extension | 2K → 256K via YaRN | Planned (post EP1) |
 | SFT | Instruction tuning with tool calling | Planned |
 | DPO | Preference alignment | Planned |
@@ -351,11 +351,11 @@ This model is released under the [Apache License 2.0](https://www.apache.org/lic
 
 ```bibtex
 @misc{yua2026moe,
-  title   = {YUA 1.0: Multilingual Mixture-of-Experts Language Model (9.2B/2.7B)},
+  title   = {YUA 1.0: Multilingual Mixture-of-Experts Language Model (9.45B/2.7B)},
   author  = {Jungwon Eom},
   year    = {2026},
-  url     = {https://huggingface.co/jungwon-ai/YUA-1.0-MoE-9.2B},
-  note    = {9.2B total / 2.7B active MoE. Trained from scratch on TPU v4-32. Apache 2.0.}
+  url     = {https://huggingface.co/jungwon-ai/YUA-1.0-MoE-9.45B},
+  note    = {9.45B total / 2.7B active MoE. Trained from scratch on TPU v4-32. Apache 2.0.}
 }
 ```
 
