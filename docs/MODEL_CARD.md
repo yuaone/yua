@@ -49,7 +49,7 @@ pipeline_tag: text-generation
 | Number of experts | 8 |
 | Top-K routing | 2 |
 | Vocabulary | 128,000 (SentencePiece BPE) |
-| Max context length | 2,048 (→ 256K via YaRN post-training) |
+| Max context length | 2,048 (→ 256K via YaRN 2-stage: 128K + 256K, ~1000 steps) |
 | Position encoding | RoPE (theta=500,000) |
 | Normalization | Pre-LN with RMSNorm |
 | QK-Norm | Yes |

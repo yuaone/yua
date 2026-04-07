@@ -119,7 +119,7 @@ Loss = CE loss + MTP loss (optional) + MoE aux loss (layer-averaged)
 | **Position** | RoPE (θ=500,000) |
 | **Norm** | RMSNorm (pre-norm) |
 | **Attention Features** | QK-Norm, Flash Attention 2, GQA |
-| **Context Length** | 2,048 (→ 32K planned via YaRN) |
+| **Context Length** | 2,048 (→ 256K planned via YaRN 2-stage) |
 | **Precision** | bfloat16 |
 | **License** | Apache 2.0 |
 
