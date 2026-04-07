@@ -241,15 +241,25 @@ print(result.final_text)
 print(f"Tool rounds: {result.round_count}")
 ```
 
-**Available tools:**
+**16 built-in tools:**
 
-| Tool | Description | Requires Approval |
-|------|-------------|:-:|
-| `calculator` | Basic arithmetic (AST-safe) | No |
-| `calculate` | Math with functions (sqrt, log, sin, pi...) | No |
-| `execute` | Sandboxed Python execution | Yes |
-| `pytest` | Run tests with result parsing | Yes |
-| `search` | Web search (requires backend) | No |
+| Category | Tool | Description | Approval |
+|----------|------|-------------|:--------:|
+| **Search** | `web_search` | DuckDuckGo search | No |
+| | `url_fetch` | Fetch webpage text | No |
+| | `http_request` | API calls (GET/POST) | Yes |
+| **Compute** | `calculate` | Math functions (sqrt, log, pi...) | No |
+| | `execute` | Sandboxed Python | Yes |
+| | `pytest` | Test runner | Yes |
+| **Files** | `file_read` | Read text/code/CSV/JSON/PDF | No |
+| | `file_write` | Write files | Yes |
+| | `pdf_read` | PDF text extraction | No |
+| | `json_parse` | JSON query/extract | No |
+| | `grep_search` | Regex file search | No |
+| **System** | `shell` | Bash commands | Yes |
+| | `git_ops` | Git operations | Read: No, Write: Yes |
+| | `datetime_now` | Time/timezone | No |
+| | `unit_convert` | Unit conversion | No |
 
 **Tool call format** (model output):
 ```
