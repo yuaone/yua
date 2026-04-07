@@ -34,12 +34,11 @@ It uses 8 experts with top-2 routing, activating only **2.7B parameters per toke
 ```mermaid
 graph LR
     A["Input<br/>Tokens"] --> B["Embedding<br/>128K × 2048"]
-    B --> C["+ RoPE"]
-    C --> D["× 32 Layers"]
+    B --> D["× 32 Layers"]
     
     subgraph D["× 32 Transformer Layers"]
         direction TB
-        N1["RMSNorm"] --> ATT["GQA Attention<br/>32 heads, 8 KV<br/>QK-Norm + Flash"]
+        N1["RMSNorm"] --> ATT["GQA Attention<br/>32 heads, 8 KV<br/>QK-Norm + RoPE + Flash"]
         ATT --> R1["+ Residual"]
         R1 --> N2["RMSNorm"]
         N2 --> RT["Router → Top-2"]
@@ -58,9 +57,9 @@ graph LR
 **How MoE routing works:** Each token goes through all 32 layers. At each layer, a router selects the top-2 experts out of 8. Only the selected experts compute — the rest stay idle. This means each token uses ~2.7B of the 9.45B total parameters.
 
 ```
-Per token: Input → Embed → [RMSNorm → GQA → RMSNorm → Route → 2/8 Experts → Residual] × 32 → LM Head
+Per token: Input → Embed → [RMSNorm → GQA(+RoPE) → RMSNorm → Route → 2/8 Experts → Residual] × 32 → LM Head
 Active:    2.7B params (2 experts per layer)
-Inactive:  6.5B params (6 idle experts per layer)
+Inactive:  6.75B params (6 idle experts per layer)
 ```
 
 <details>
@@ -70,7 +69,7 @@ Inactive:  6.5B params (6 idle experts per layer)
 YuaModel (src/model/yua_model.py)
 │
 ├─ TokenEmbedding (src/model/embeddings.py)
-│   └─ nn.Embedding(128000, 2048) + optional RMSNorm + RoPE
+│   └─ nn.Embedding(128000, 2048) + optional RMSNorm
 │
 ├─ × 32 TransformerBlock (src/model/transformer.py)
 │   ├─ RMSNorm(2048, eps=1e-6)
