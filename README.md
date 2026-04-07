@@ -217,58 +217,62 @@ for lang, prompt in prompts.items():
 
 ### Tool Calling
 
-YUA supports tool-augmented generation. The model can call external tools (search, code execution, calculation) and use the results to improve its answers.
+YUA supports tool-augmented generation with an OpenAI-compatible tool calling API. The model can invoke external tools during generation, receive structured results, and continue reasoning.
 
-```python
-from src.inference.generate import TextGenerator
-from src.runtime.tools.executor import ToolExecutor, create_default_registry
+See the full [Tool Call API Reference](docs/TOOL_CALL_API.md) for detailed specification.
 
-# Setup
-generator = TextGenerator.from_checkpoint(
-    checkpoint_path="checkpoints/yua-moe-9b.pt",
-    config_path="configs/model_moe_9b.yaml",
-    tokenizer_path="data/tokenizer/yua_128k_v2.model",
-)
-executor = ToolExecutor(create_default_registry())
-
-# Generate with tools
-result = generator.generate_with_tools(
-    prompt="What is the square root of 144 plus the cube root of 27?",
-    tool_executor=executor,
-    max_tool_rounds=3,
-)
-print(result.final_text)
-print(f"Tool rounds: {result.round_count}")
+```bash
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "yua-9.45b-moe",
+    "messages": [
+      {"role": "user", "content": "What is sqrt(144) + cbrt(27)?"}
+    ],
+    "tools": [{
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Evaluate math expressions",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {"type": "string"}
+          },
+          "required": ["expression"]
+        }
+      }
+    }]
+  }'
 ```
 
 **16 built-in tools:**
 
-| Category | Tool | Description | Approval |
-|----------|------|-------------|:--------:|
-| **Search** | `web_search` | DuckDuckGo search | No |
-| | `url_fetch` | Fetch webpage text | No |
-| | `http_request` | API calls (GET/POST) | Yes |
-| **Compute** | `calculate` | Math functions (sqrt, log, pi...) | No |
-| | `execute` | Sandboxed Python | Yes |
-| | `pytest` | Test runner | Yes |
-| **Files** | `file_read` | Read text/code/CSV/JSON/PDF | No |
-| | `file_write` | Write files | Yes |
-| | `pdf_read` | PDF text extraction | No |
-| | `json_parse` | JSON query/extract | No |
-| | `grep_search` | Regex file search | No |
-| **System** | `shell` | Bash commands | Yes |
-| | `git_ops` | Git operations | Read: No, Write: Yes |
-| | `datetime_now` | Time/timezone | No |
-| | `unit_convert` | Unit conversion | No |
+| Category | Tools | Approval Required |
+|----------|-------|:-----------------:|
+| **Search** | `web_search`, `url_fetch`, `http_request` | No / No / Yes |
+| **Compute** | `calculator`, `calculate`, `execute`, `pytest` | No / No / Yes / Yes |
+| **Files** | `file_read`, `file_write`, `pdf_read`, `json_parse`, `grep_search` | No / Yes / No / No / No |
+| **System** | `shell`, `git_ops`, `datetime`, `unit_convert` | Yes / Mixed / No / No |
 
-**Tool call format** (model output):
+**Native format** (ChatML):
 ```
-<tool_call>{"name": "calculate", "arguments": {"expression": "sqrt(144) + 27**(1/3)"}}</tool_call>
+<tool_call>
+{"name": "calculate", "arguments": {"expression": "sqrt(144) + 27**(1/3)"}}
+</tool_call>
 ```
 
-**Tool result format** (injected back to model):
+**Structured result:**
+```json
+{"id": "call_0001", "name": "calculate", "status": "success", "output": "15.0", "duration_ms": 0.3}
 ```
-<tool_result name="calculate">15.0</tool_result>
+
+**Error handling** — parameters are validated against JSON Schema before execution. Errors include type (`invalid_params`, `timeout`, `execution_error`, etc.) and a human-readable message so the model can self-correct.
+
+```json
+{"id": "call_0001", "name": "calculate", "status": "error",
+ "error": {"type": "invalid_params", "message": "missing required parameter: expression"},
+ "duration_ms": 0.0}
 ```
 
 ---
