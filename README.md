@@ -140,15 +140,16 @@ Result: 3.4× more capacity at same compute cost
 
 | Metric | Value |
 |:---|:---|
-| **Current Step** | ~34K / 511K |
-| **Epoch Progress** | 6.7% of 1 epoch |
-| **Loss** | avg ~2.27, min ~1.95 |
-| **Tokens Seen** | ~9B / 134B |
-| **Step Time** | 2.1 sec |
-| **Throughput** | 124,401 tokens/sec |
-| **TFLOP/s** | 134.3 per device |
-| **Uptime** | 25+ hours, zero crashes |
-| **ETA (1 epoch)** | ~April 17, 2026 |
+| **Current Step** | ~1.2K / 511K (MoE phase) |
+| **Epoch Progress** | 0.2% MoE + 80K dense prior |
+| **Loss** | avg 2.31, min 1.99 |
+| **Tokens Seen** | ~0.3B MoE + 42B dense prior |
+| **Step Time** | 4.7 sec |
+| **Throughput** | 55,700 tokens/sec |
+| **TFLOP/s** | 60.2 per device |
+| **Uptime** | Stable, zero OOM |
+| **Method** | Drop-Upcycling (ICLR 2025) from 1.93B dense |
+| **ETA (1 epoch)** | ~May 6, 2026 |
 
 ### Loss Curve
 
