@@ -84,9 +84,11 @@ YuaDecoderLayer (layer_idx >= num_dense_layers):
   ├── self_attn (GQA + RoPE + QK-norm)
   ├── residual connection
   ├── post_attention_layernorm (RMSNorm)
-  ├── shared_expert (YuaSwiGLUMLP)  ← 항상 활성
-  ├── routed_moe (YuaSparseMoE)     ← ReLU routing, top-k
-  ├── output = shared_out + routed_out
+  ├── mlp = YuaSparseMoE:
+  │     ├── shared_expert (YuaSwiGLUMLP)  ← 항상 활성
+  │     ├── router (TopK or ReLU)
+  │     ├── experts[0..N] (YuaSwiGLUMLP)  ← top-k routing
+  │     └── output = shared_out + routed_out
   └── residual connection
 ```
 
@@ -209,13 +211,19 @@ decoder.layers.self_attention       →  model.layers.{i}.self_attn
   .key.kernel[:, i, :, :]          →    .k_proj.weight  (reshape+T)
   .value.kernel[:, i, :, :]        →    .v_proj.weight  (reshape+T)
   .out.kernel[:, i, :, :]          →    .o_proj.weight  (reshape+T)
-decoder.layers.shared_expert        →  model.layers.{i}.shared_expert
+--- Dense layers (layer_idx < num_dense_layers) ---
+decoder.layers.mlp                  →  model.layers.{i}.mlp
   .wi_0[:, i, :, :]               →    .gate_proj.weight  (T)
   .wi_1[:, i, :, :]               →    .up_proj.weight    (T)
   .wo[:, i, :, :]                  →    .down_proj.weight  (T)
-decoder.layers.MoeBlock_0.gate      →  model.layers.{i}.router.gate
+--- MoE layers (layer_idx >= num_dense_layers) ---
+decoder.layers.shared_expert        →  model.layers.{i}.mlp.shared_expert
+  .wi_0[:, i, :, :]               →    .gate_proj.weight  (T)
+  .wi_1[:, i, :, :]               →    .up_proj.weight    (T)
+  .wo[:, i, :, :]                  →    .down_proj.weight  (T)
+decoder.layers.MoeBlock_0.gate      →  model.layers.{i}.mlp.router.gate
   .kernel[:, i, :]                 →    .weight  (T)
-decoder.layers.MoeBlock_0           →  model.layers.{i}.experts.{e}
+decoder.layers.MoeBlock_0           →  model.layers.{i}.mlp.experts.{e}
   .wi_0[e, i, :, :]               →    .gate_proj.weight  (T)
   .wi_1[e, i, :, :]               →    .up_proj.weight    (T)
   .wo[e, i, :, :]                  →    .down_proj.weight  (T)
