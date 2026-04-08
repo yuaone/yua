@@ -12,8 +12,9 @@
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB.svg)](https://www.python.org/)
 [![JAX](https://img.shields.io/badge/JAX-TPU_Optimized-red.svg)](https://github.com/jax-ml/jax)
 [![Training](https://img.shields.io/badge/Training-In_Progress-brightgreen.svg)](#training-status)
+[![HuggingFace](https://img.shields.io/badge/🤗_HuggingFace-YUA--MoE--9.45B-yellow.svg)](https://huggingface.co/jungwon-ai/YUA-MoE-9.45B)
 
-[Model Card](docs/MODEL_CARD.md) · [Fine-Tuning Guide](docs/FINE_TUNING_GUIDE.md) · [Blog](https://medium.com/@dmsal020813/i-quit-waiting-for-gpt-and-built-my-own-llm-73a431fedfad) · [Training Logs](https://storage.googleapis.com/yua-data-v1/reports/training_log_moe_full.csv)
+[HuggingFace](https://huggingface.co/jungwon-ai/YUA-MoE-9.45B) · [Model Card](docs/MODEL_CARD.md) · [Fine-Tuning Guide](docs/FINE_TUNING_GUIDE.md) · [Blog](https://medium.com/@dmsal020813/i-quit-waiting-for-gpt-and-built-my-own-llm-73a431fedfad) · [Training Logs](https://storage.googleapis.com/yua-data-v1/reports/training_log_moe_full.csv)
 
 </div>
 
@@ -139,16 +140,16 @@ Result: 3.4× more capacity at same compute cost
 
 | Metric | Value |
 |:---|:---|
-| **Current Step** | ~1.2K / 511K (MoE phase) |
-| **Epoch Progress** | 0.2% MoE + 80K dense prior |
-| **Loss** | avg 2.31, min 1.99 |
-| **Tokens Seen** | ~0.3B MoE + 42B dense prior |
-| **Step Time** | 4.7 sec |
-| **Throughput** | 55,700 tokens/sec |
-| **TFLOP/s** | 60.2 per device |
+| **Current Step** | ~14.8K / 511K (MoE phase) |
+| **Epoch Progress** | 2.9% MoE + 80K dense prior |
+| **Loss** | avg 2.07, trending down |
+| **Tokens Seen** | ~3.9B MoE + 42B dense prior |
+| **Step Time** | 7.89 sec |
+| **Throughput** | 66,400 tokens/sec |
+| **TFLOP/s** | 71.8 per device |
 | **Uptime** | Stable, zero OOM |
 | **Method** | Drop-Upcycling (ICLR 2025) from 1.93B dense |
-| **ETA (1 epoch)** | ~May 6, 2026 |
+| **ETA (1 epoch)** | ~May 1, 2026 |
 
 ### Loss Curve
 
@@ -177,10 +178,11 @@ Live CSV: [`training_log_moe_full.csv`](https://storage.googleapis.com/yua-data-
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 
-model_name = "yua-ai/yua-moe-9b"
+model_name = "jungwon-ai/YUA-MoE-9.45B"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
+    trust_remote_code=True,
     torch_dtype=torch.bfloat16,
     device_map="auto",
 )
@@ -341,7 +343,7 @@ YUA MoE 9.45B supports LoRA, QLoRA, and full SFT fine-tuning. See the **[Fine-Tu
 ```python
 from vllm import LLM, SamplingParams
 
-llm = LLM(model="yuaone/yua-moe-9b", dtype="bfloat16", tensor_parallel_size=1)
+llm = LLM(model="jungwon-ai/YUA-MoE-9.45B", trust_remote_code=True, dtype="bfloat16", tensor_parallel_size=1)
 params = SamplingParams(temperature=0.7, top_p=0.9, max_tokens=256)
 outputs = llm.generate(["인공지능의 미래는"], params)
 print(outputs[0].outputs[0].text)
@@ -414,7 +416,14 @@ yua/
 │   ├── stream_shard_gcs.py        # ArrayRecord conversion
 │   ├── convert_yua_to_maxtext.py  # PyTorch → MaxText converter
 │   └── expand_checkpoint.py       # Growth family expansion
-├── src/model/           # YUA model architecture (PyTorch)
+├── src/model/           # YUA model architecture (PyTorch + HF)
+│   ├── configuration_yua.py       # HF YuaConfig
+│   ├── modeling_yua.py            # HF YuaForCausalLM
+│   ├── yua_model.py               # Core model (PyTorch)
+│   └── moe.py                     # MoE routing + experts
+├── tools/               # Conversion & utilities
+│   ├── convert_maxtext_moe_to_hf.py  # MaxText → HF converter
+│   └── CONVERT_GUIDE.md
 ├── docs/
 │   ├── HANDOVER.md      # Full project state & history
 │   ├── MODEL_CARD.md    # HuggingFace model card
@@ -452,9 +461,9 @@ Apache License 2.0 — free for commercial and research use.
 ```bibtex
 @misc{yua2026moe,
     title   = {YUA MoE 9.45B: Open Multilingual Mixture-of-Experts Language Model},
-    author  = {YUA Team},
+    author  = {Jungwon Eom},
     year    = {2026},
-    url     = {https://github.com/yua-ai/yua},
+    url     = {https://github.com/yuaone/yua},
     note    = {9.45B total, 2.7B active, 8 experts top-2,
                trained from scratch on 134B+ tokens, 16 languages,
                TPU v4-32, $0 compute (Google TRC)}
