@@ -380,8 +380,46 @@ yua-llm/
 
 ---
 
+## 11. 리서치 결과 반영 (2026-04-08)
+
+### MaxText에 이미 있는 것 (새로 만들 필요 없음)
+
+| 기능 | MaxText 지원 | decoder_block |
+|------|-------------|---------------|
+| Shared Expert | ✓ | `"deepseek"` |
+| Loss-Free Load Balancing | ✓ | `"deepseek"` (routed_bias_update_rate) |
+| MLA (Multi-Latent Attention) | ✓ | `"deepseek"` |
+| Mixed Dense+MoE Layers | ✓ | `"deepseek"` |
+| MTP (Multi-Token Prediction) | ✓ | PR #1837 (2025-07) |
+| Engram + mHC | ✓ | `"deepseek"` custom config (2026-03) |
+
+**시사점**: Gen2에서 `decoder_block: "deepseek"` 먼저 테스트하고, 거기에 ReLU routing만 커스텀으로 교체하면 개발 비용 최소화.
+
+### 소규모 MoE 검증 패턴 (10B 이하)
+
+| 모델 | Total/Active | Experts | Top-K | 핵심 |
+|------|-------------|---------|-------|------|
+| OLMoE | 7B/1B | 64 | top-1 | 5T tok, LLaMA2-13B 능가 |
+| Qwen3-30B-A3B | 30B/3B | 128 | top-8 | QwQ-32B 능가 |
+| Phi-mini-MoE | 7.6B/2.4B | - | - | 초소형 MoE |
+
+**교훈**: YUA 현재 8 expert/top-2는 너무 적음. Gen2에서 **32~64 expert / top-4~8**으로 확대.
+
+### 최신 Routing 트렌드 (2025-2026)
+
+"라우터를 없애거나 단순화" 방향:
+- **ReMoE** (ICLR 2025): ReLU routing, Megatron-LM 구현 공개
+- **Self-Routing** (2026-04): 라우터 파라미터 0개, hidden subspace로 직접 routing
+- **Routing-Free** (2026-04): 라우터/Softmax/TopK 전부 제거
+- **Loss-Free LB** (DeepSeek-V3): MaxText에 이미 구현
+
+**YUA 전략**: Phase 1은 DeepSeek 스타일(MaxText 기본제공), Phase 2에서 ReLU routing 커스텀 교체.
+
+---
+
 ## 변경 이력
 
 | 날짜 | 버전 | 내용 |
 |------|------|------|
 | 2026-04-08 | v1.0 | 초기 설계 |
+| 2026-04-08 | v1.1 | 리서치 반영: MaxText deepseek 블록 활용, 소규모 MoE 패턴 |
