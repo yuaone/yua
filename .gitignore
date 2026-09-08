@@ -110,6 +110,20 @@ scripts/
 experiments/
 tests/
 
+# --- YUA Core (공개) ---------------------------------------------------
+# 위의 src/runtime/ · tests/ 제외는 그대로 두되, 로컬 비서 런타임의
+# 소스와 테스트만 예외로 추적한다. .py 이외의 파일은 여전히 비공개다.
+!src/runtime/
+src/runtime/*
+!src/runtime/*.py
+!src/runtime/tools/
+src/runtime/tools/*
+!src/runtime/tools/*.py
+
+!tests/
+tests/*
+!tests/test_*.py
+
 # 기타 내부
 yua-code/
 yua-image/

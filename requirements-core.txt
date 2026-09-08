@@ -1,0 +1,28 @@
+# YUA Core — 로컬 음성 비서 의존성
+# 학습용(torch/JAX)과 분리되어 있다. 클라우드도 GPU도 필요 없다.
+
+# --- 최소 (텍스트 모드) -----------------------------------------------------
+# 없음. 도구·에이전트·기억은 파이썬 표준 라이브러리만 쓴다.
+#   python yua_core.py --text --base-url http://localhost:11434/v1
+
+# --- LLM 백엔드 (둘 중 하나) ------------------------------------------------
+# (A) GGUF를 인프로세스로 — CPU만으로 동작
+llama-cpp-python>=0.3.0
+#     Apple Silicon(Metal) 가속:
+#       CMAKE_ARGS="-DGGML_METAL=on" pip install llama-cpp-python --no-cache-dir
+# (B) 서버 모드 — Ollama / LM Studio / llama.cpp server. 추가 패키지 불필요.
+
+# --- 음성 (--text가 아닐 때) ------------------------------------------------
+faster-whisper>=1.0.0      # STT. CPU int8로 실시간에 가깝다
+sounddevice>=0.4.6         # 마이크/스피커. Linux는 portaudio19-dev 필요
+numpy>=1.24
+torch>=2.1.0               # Silero VAD 전용 (1.8MB 모델). CPU 빌드로 충분
+
+# --- TTS (하나만 있으면 된다. 없으면 OS 내장으로 폴백) ----------------------
+kokoro>=0.9.0              # 82M, 품질 최상. soundfile도 함께 설치된다
+soundfile>=0.12.0
+# pyttsx3>=2.90            # 대안: OS 내장 TTS 래퍼
+# macOS는 내장 `say`, Linux는 espeak-ng가 자동 폴백으로 잡힌다
+
+# --- 선택 -------------------------------------------------------------------
+# pypdf>=4.0.0             # pdf_read 도구용
