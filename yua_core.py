@@ -2,11 +2,13 @@
 """YUA Core — 로컬 음성 비서 진입점.
 
 빠른 시작:
+    python yua_core.py --text --acp claude         # 이미 깔린 CLI를 구독으로 (다운로드 0바이트)
     python yua_core.py --text                      # 키보드 모드 (오디오 의존성 불필요)
     python yua_core.py --gguf models/qwen3-8b.gguf # GGUF 음성 모드
     python yua_core.py --base-url http://localhost:11434/v1 --model qwen3:8b
 
 클라우드도, GPU도, API 키도 필요하지 않다.
+디스크가 부족하면 --acp 를 쓰면 모델을 하나도 받지 않는다.
 """
 
 from __future__ import annotations
@@ -42,11 +44,19 @@ def build_agent(args: argparse.Namespace) -> Agent:
     workspace = set_workspace(args.workspace)
     REGISTRY.approval = always_allow if args.yes else ask_on_console
 
+    if args.acp:
+        extra = {"acp_command": args.acp_cmd, "cwd": str(workspace)}
+    elif args.gguf:
+        extra = {"n_ctx": args.ctx}
+    else:
+        extra = {}
+
     backend = load_backend(
+        acp=args.acp,
         model_path=args.gguf,
         base_url=args.base_url,
         model=args.model,
-        **({"n_ctx": args.ctx} if args.gguf else {}),
+        **extra,
     )
 
     config = AgentConfig(
@@ -99,6 +109,9 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--text", action="store_true", help="키보드 모드 (오디오 의존성 없이 테스트)")
 
     llm = p.add_argument_group("LLM 백엔드")
+    llm.add_argument("--acp", metavar="AGENT",
+                     help="이미 설치된 CLI를 구독으로 사용: claude | gemini | codex")
+    llm.add_argument("--acp-cmd", help="ACP 에이전트 실행 명령 직접 지정")
     llm.add_argument("--gguf", help="GGUF 파일 경로 (llama.cpp 인프로세스)")
     llm.add_argument("--base-url", help="OpenAI 호환 서버 (Ollama: http://localhost:11434/v1)")
     llm.add_argument("--model", default="qwen3:8b", help="서버 모드에서 쓸 모델 이름")
@@ -139,7 +152,9 @@ def main(argv: list[str] | None = None) -> int:
     emit("system", f"백엔드: {agent.backend.name} · 도구 {len(REGISTRY)}개 · "
                    f"작업공간 {args.workspace}")
     if agent.backend.name == "echo":
-        emit("system", "⚠️  모델이 지정되지 않아 echo 백엔드로 돕니다. --gguf 또는 --base-url을 주세요.")
+        emit("system", "⚠️  모델이 지정되지 않아 echo 백엔드로 돕니다.")
+        emit("system", "    디스크가 부족하면:  --acp claude   (모델 다운로드 없음)")
+        emit("system", "    로컬 모델을 쓰려면: --gguf 또는 --base-url")
 
     try:
         if args.text:
@@ -149,6 +164,9 @@ def main(argv: list[str] | None = None) -> int:
     except RuntimeError as exc:
         emit("error", str(exc))
         return 1
+    finally:
+        if close := getattr(agent.backend, "close", None):
+            close()
     return 0
 
 

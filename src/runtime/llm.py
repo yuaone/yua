@@ -1,9 +1,10 @@
 """YUA Runtime — LLM 백엔드 추상화.
 
-세 가지 중 무엇이든 같은 인터페이스로 쓴다:
+네 가지 중 무엇이든 같은 인터페이스로 쓴다:
   1. llama-cpp-python  — GGUF 파일을 인프로세스로 (CPU/Metal/CUDA 자동)
   2. OpenAI 호환 서버  — Ollama, LM Studio, llama.cpp server, vLLM
-  3. EchoBackend       — 모델 없이 배선만 점검할 때
+  3. ACP               — 이미 깔린 claude/gemini CLI를 구독으로 (다운로드 0바이트)
+  4. EchoBackend       — 모델 없이 배선만 점검할 때
 
 자체 학습한 YUA 체크포인트가 준비되면 Backend 하나만 추가하면 된다.
 """
@@ -18,9 +19,13 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 
+from .acp import ACPSession, resolve_agent_command
 from .chatml import STOP_STRINGS, Message, render_chatml
 
-__all__ = ["Backend", "LlamaCppBackend", "OpenAIBackend", "EchoBackend", "GenerationConfig", "load_backend"]
+__all__ = [
+    "Backend", "LlamaCppBackend", "OpenAIBackend", "ACPBackend", "EchoBackend",
+    "GenerationConfig", "load_backend",
+]
 
 
 @dataclass
@@ -154,6 +159,76 @@ class OpenAIBackend(Backend):
             ) from exc
 
 
+class ACPBackend(Backend):
+    """이미 설치된 공식 CLI를 구독 계정으로 빌려 쓴다.
+
+    모델 파일을 받지 않으므로 디스크와 램이 부족한 기기에서도 동작한다.
+    자격증명은 CLI가 자기 홈 디렉터리에 들고 있고, 이 코드는 그것을 보지 않는다.
+    """
+
+    name = "acp"
+
+    def __init__(
+        self,
+        agent: str = "claude",
+        command: str | None = None,
+        cwd: str | None = None,
+        timeout_s: float = 180.0,
+        approve_tools: bool = False,
+        debug: bool = False,
+    ) -> None:
+        self.agent = agent
+        self.argv = resolve_agent_command(agent, command)
+        self.name = f"acp:{agent}"
+        self._session = ACPSession(
+            self.argv,
+            cwd=cwd,
+            timeout_s=timeout_s,
+            # CLI 자체의 도구 승인. YUA 도구는 REGISTRY.approval이 따로 지킨다.
+            on_permission=lambda _req: approve_tools,
+            debug=debug,
+        )
+        self._started = False
+        self._sent_system = False
+
+    def _ensure_started(self) -> None:
+        if not self._started:
+            self._session.start()
+            self._started = True
+
+    def stream(self, messages: list[Message], config: GenerationConfig) -> Iterator[str]:
+        self._ensure_started()
+        # ACP 에이전트는 자체 세션 상태를 들고 있으므로 전체 히스토리를 다시 보내지
+        # 않는다. 시스템 프롬프트(도구 목록 포함)는 첫 턴에만 앞에 붙인다.
+        text = _acp_turn_text(messages, first=not self._sent_system)
+        self._sent_system = True
+        yield from self._session.prompt(text)
+
+    def close(self) -> None:
+        if self._started:
+            self._session.close()
+            self._started = False
+
+
+def _acp_turn_text(messages: list[Message], first: bool) -> str:
+    """이번 턴에 보낼 텍스트를 만든다.
+
+    도구 결과(role="tool")는 사용자 턴으로 접어 넣는다 — ACP 에이전트는
+    YUA의 도구 레지스트리를 모르기 때문이다.
+    """
+    last_user = next((m for m in reversed(messages) if m.role in ("user", "tool")), None)
+    body = last_user.content if last_user else ""
+
+    if last_user is not None and last_user.role == "tool":
+        body = f"<tool_response>\n{body}\n</tool_response>"
+
+    if first:
+        system = next((m.content for m in messages if m.role == "system"), "")
+        if system:
+            return f"{system}\n\n---\n\n{body}"
+    return body
+
+
 class EchoBackend(Backend):
     """모델 없이 STT→도구→TTS 배선을 점검하기 위한 더미."""
 
@@ -168,16 +243,21 @@ def load_backend(
     model_path: str | None = None,
     base_url: str | None = None,
     model: str | None = None,
+    acp: str | None = None,
+    acp_command: str | None = None,
     **kwargs,
 ) -> Backend:
     """설정에 따라 알맞은 백엔드를 고른다.
 
-    우선순위: GGUF 경로 > OpenAI 호환 URL > 환경변수 > Echo
+    우선순위: ACP > GGUF 경로 > OpenAI 호환 URL > 환경변수 > Echo
     """
+    acp = acp or os.environ.get("YUA_ACP")
     model_path = model_path or os.environ.get("YUA_GGUF")
     base_url = base_url or os.environ.get("YUA_BASE_URL")
     model = model or os.environ.get("YUA_MODEL", "qwen3:8b")
 
+    if acp:
+        return ACPBackend(agent=acp, command=acp_command, **kwargs)
     if model_path:
         return LlamaCppBackend(model_path, **kwargs)
     if base_url:

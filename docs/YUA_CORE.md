@@ -14,6 +14,30 @@
 
 ---
 
+## 0. 디스크/램이 부족하다면 — 모델을 받지 마세요
+
+이미 설치된 공식 CLI를 구독 계정 그대로 두뇌로 빌려 씁니다. **다운로드 0바이트.**
+
+```bash
+npm i -g @zed-industries/claude-code-acp   # 한 번만
+claude login                                # 한 번만
+
+python yua_core.py --text --acp claude      # 끝
+python yua_core.py --acp claude             # 음성 모드
+```
+
+`--acp gemini`, `--acp codex` 도 같습니다. 자격증명은 그 CLI가 자기 홈 디렉터리
+(또는 macOS 키체인)에 들고 있고, YUA는 그것을 읽지 않습니다 — 그냥 CLI를
+서브프로세스로 띄워 JSON-RPC로 대화할 뿐입니다.
+
+환경이 되는지부터 확인하려면:
+
+```bash
+python check_env.py     # RAM·디스크·설치된 것들을 한 번에 출력
+```
+
+---
+
 ## 1. 가장 빠른 시작 (5분, 오디오 없이)
 
 에이전트와 도구 배선부터 확인한다. 추가 패키지가 필요 없다.
@@ -48,6 +72,8 @@ python yua_core.py --gguf ~/models/qwen3-8b-q4_k_m.gguf --ctx 8192
 | 옵션 | 기본값 | 설명 |
 |:---|:---|:---|
 | `--text` | off | 키보드 모드. 오디오 의존성 없이 테스트 |
+| `--acp AGENT` | — | **설치된 CLI를 구독으로** (`claude`\|`gemini`\|`codex`). 모델 다운로드 없음 |
+| `--acp-cmd` | — | ACP 에이전트 실행 명령 직접 지정 |
 | `--gguf PATH` | — | GGUF 인프로세스 실행 |
 | `--base-url URL` | — | OpenAI 호환 서버 (Ollama 등) |
 | `--whisper SIZE` | `small` | `tiny`\|`base`\|`small`\|`medium`\|`large-v3-turbo` |
@@ -85,7 +111,8 @@ python yua_core.py --gguf ~/models/qwen3-8b-q4_k_m.gguf --ctx 8192
 |:---|:---|
 | `src/runtime/tools/` | 도구 16종 + 레지스트리. `docs/TOOL_CALL_API.md` 스펙 구현 |
 | `src/runtime/chatml.py` | ChatML 렌더링, `<tool_call>` 파싱. `token_protocol.py`가 단일 출처 |
-| `src/runtime/llm.py` | 백엔드 추상화 (llama.cpp / OpenAI 호환 / echo) |
+| `src/runtime/llm.py` | 백엔드 추상화 (llama.cpp / OpenAI 호환 / **ACP** / echo) |
+| `src/runtime/acp.py` | ACP 클라이언트 — 공식 CLI를 stdio JSON-RPC로 구동 |
 | `src/runtime/agent.py` | 대화 루프, 도구 라운드, 문장 단위 스트리밍 |
 | `src/runtime/memory.py` | JSONL 기억 + 회상. 한글 조사 변형을 bigram으로 흡수 |
 | `src/voice/` | STT · VAD · TTS · 음성 루프 |

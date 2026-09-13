@@ -12,11 +12,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from src.runtime.acp import ACPError, resolve_agent_command           # noqa: E402
 from src.runtime.agent import Agent, AgentConfig                      # noqa: E402
 from src.runtime.chatml import (                                       # noqa: E402
     Message, parse_tool_calls, render_chatml, strip_tool_calls,
 )
-from src.runtime.llm import Backend, GenerationConfig                  # noqa: E402
+from src.runtime.llm import ACPBackend, Backend, GenerationConfig      # noqa: E402
 from src.runtime.memory import Memory                                  # noqa: E402
 from src.runtime.tools import REGISTRY, always_allow, always_deny, set_workspace  # noqa: E402
 from src.runtime.tools.base import ToolError, validate_params          # noqa: E402
@@ -205,6 +206,82 @@ def test_agent_stops_after_max_tool_rounds():
     agent = Agent(AlwaysCalls(), AgentConfig(max_tool_rounds=2))
     agent.chat("몇 시야?")           # 무한 루프면 여기서 멈추지 않는다
     assert sum(1 for m in agent.history if m.role == "tool") == 2
+
+
+# --- ACP (구독 CLI 빌려쓰기) -------------------------------------------------
+_FAKE_ACP = '''import json, sys
+def send(o): print(json.dumps(o), flush=True)
+for raw in sys.stdin:
+    raw = raw.strip()
+    if not raw: continue
+    m = json.loads(raw); mid, method, params = m.get("id"), m.get("method"), m.get("params") or {}
+    if method == "initialize":
+        send({"jsonrpc":"2.0","id":mid,"result":{"protocolVersion":1}})
+    elif method == "session/new":
+        send({"jsonrpc":"2.0","id":mid,"result":{"sessionId":"s1"}})
+    elif method == "session/prompt":
+        text = params["prompt"][0]["text"]
+        send({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"s1",
+            "update":{"sessionUpdate":"agent_thought_chunk","content":{"type":"text","text":"SECRET"}}}})
+        for c in ["길이 ", str(len(text)), "자"]:
+            send({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"s1",
+                "update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":c}}}})
+        send({"jsonrpc":"2.0","id":mid,"result":{"stopReason":"end_turn"}})
+'''
+
+
+def _fake_acp_backend() -> ACPBackend:
+    path = Path(tempfile.mkdtemp()) / "fake_acp.py"
+    path.write_text(_FAKE_ACP, encoding="utf-8")
+    return ACPBackend(agent="claude", command=f"{sys.executable} {path}")
+
+
+def test_acp_speaks_the_protocol_and_streams_text():
+    backend = _fake_acp_backend()
+    try:
+        out = "".join(backend.stream([Message("user", "안녕")], GenerationConfig()))
+        assert out.startswith("길이 ") and out.endswith("자")
+    finally:
+        backend.close()
+
+
+def test_acp_never_leaks_agent_thoughts():
+    """사고 과정(agent_thought_chunk)은 사용자/TTS에 절대 나가면 안 된다."""
+    backend = _fake_acp_backend()
+    try:
+        out = "".join(backend.stream([Message("user", "안녕")], GenerationConfig()))
+        assert "SECRET" not in out
+    finally:
+        backend.close()
+
+
+def test_acp_sends_system_prompt_only_on_first_turn():
+    """ACP 에이전트는 세션 상태를 들고 있으므로 히스토리를 재전송하면 낭비다."""
+    backend = _fake_acp_backend()
+    try:
+        msgs = [Message("system", "너는 YUA다." * 20), Message("user", "안녕")]
+        first = int("".join(backend.stream(msgs, GenerationConfig()))[3:-1])
+        second = int("".join(backend.stream(msgs, GenerationConfig()))[3:-1])
+        assert first > second, f"시스템 프롬프트가 매 턴 재전송됨 ({first} vs {second})"
+        assert second == len("안녕")
+    finally:
+        backend.close()
+
+
+def test_acp_unknown_agent_gives_actionable_error():
+    try:
+        resolve_agent_command("nosuchagent")
+        raise AssertionError("unknown agent accepted")
+    except ACPError as exc:
+        assert "claude" in str(exc)        # 무엇을 쓸 수 있는지 알려줘야 한다
+
+
+def test_acp_tool_results_are_wrapped_for_the_agent():
+    """도구 결과는 <tool_response>로 감싸서 보내야 에이전트가 알아본다."""
+    from src.runtime.llm import _acp_turn_text
+
+    text = _acp_turn_text([Message("user", "몇 시?"), Message("tool", '{"output": "3시"}')], first=False)
+    assert text.startswith("<tool_response>") and "3시" in text
 
 
 def _run_all() -> int:
